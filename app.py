@@ -17,7 +17,7 @@ import io
 # PAGE CONFIGURATION
 # ================================================================
 st.set_page_config(
-    page_title="Criteria Retrieval, Extraction & Selection Tool (CREST)",
+    page_title="Criteria Retrieval, Extraction and Selection Tool (CREST)",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
