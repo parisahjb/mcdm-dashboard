@@ -24,6 +24,81 @@ st.set_page_config(
 )
 
 # ================================================================
+# CUSTOM CSS FOR PROFESSIONAL LOOK
+# ================================================================
+st.markdown("""
+<style>
+    .main-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+    }
+    
+    .sub-title {
+        font-size: 1.25rem;
+        color: #6b7280;
+        margin-bottom: 2rem;
+    }
+    
+    .stButton button {
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+    
+    div[data-testid="metric-container"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1rem;
+        border-radius: 10px;
+        color: white;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    div[data-testid="metric-container"] label {
+        color: rgba(255,255,255,0.9) !important;
+        font-size: 0.875rem !important;
+        font-weight: 600 !important;
+    }
+    
+    div[data-testid="metric-container"] [data-testid="stMetricValue"] {
+        color: white !important;
+        font-size: 2rem !important;
+        font-weight: 700 !important;
+    }
+    
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    
+    .info-box {
+        background: #eff6ff;
+        border-left: 4px solid #3b82f6;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }
+    
+    .success-box {
+        background: #f0fdf4;
+        border-left: 4px solid #10b981;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }
+    
+    .warning-box {
+        background: #fffbeb;
+        border-left: 4px solid #f59e0b;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ================================================================
 # SESSION STATE INITIALIZATION
 # ================================================================
 if 'data' not in st.session_state:
@@ -36,9 +111,11 @@ if 'result' not in st.session_state:
     st.session_state.result = None
 if 'config' not in st.session_state:
     st.session_state.config = None
+if 'current_step' not in st.session_state:
+    st.session_state.current_step = 1
 
 # ================================================================
-# EXCEL TEMPLATE GENERATOR - COMPLETE VERSION
+# EXCEL TEMPLATE GENERATOR - COMPLETE
 # ================================================================
 
 def generate_excel_template(num_criteria, num_alternatives, num_experts, num_objectives,
@@ -46,7 +123,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
                            tau_O, tau_S, lambda_th, mu):
     """Generate complete Excel template with all 11 sheets"""
     
-    # Store config
     st.session_state.config = {
         'num_criteria': num_criteria,
         'num_alternatives': num_alternatives,
@@ -65,16 +141,13 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         'mu': mu
     }
     
-    # Calculate row positions
     CRITERIA_START_ROW = 11
     ALTERNATIVES_START_ROW = 11 + num_criteria + 3
     OBJECTIVES_START_ROW = ALTERNATIVES_START_ROW + num_alternatives + 3
     
-    # Create workbook
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
     
-    # Define styles
     header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF", size=11)
     input_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
@@ -88,9 +161,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         bottom=Side(style='thin')
     )
     
-    # ================================================================
     # SHEET 0: CONFIGURATION
-    # ================================================================
     ws_config = wb.create_sheet("0_Configuration")
     ws_config['A1'] = "MCDM CRITERIA SELECTION - CONFIGURATION"
     ws_config['A1'].font = Font(bold=True, size=14)
@@ -117,7 +188,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     
     row += 1
     
-    # CRITERIA DEFINITION TABLE
     ws_config[f'A{row}'] = "CRITERIA DEFINITIONS (Fill in the yellow cells)"
     ws_config[f'A{row}'].font = Font(bold=True, size=12)
     ws_config[f'A{row}'].fill = section_fill
@@ -135,19 +205,15 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     
     for i in range(num_criteria):
         ws_config.cell(row=row, column=1, value=f"C{i+1}")
-        
         name_cell = ws_config.cell(row=row, column=2, value=f"Criterion {i+1}")
         name_cell.fill = input_fill
         name_cell.border = thin_border
-        
         type_cell = ws_config.cell(row=row, column=3, value="Benefit")
         type_cell.fill = input_fill
         type_cell.border = thin_border
-        
         desc_cell = ws_config.cell(row=row, column=4, value="")
         desc_cell.fill = input_fill
         desc_cell.border = thin_border
-        
         row += 1
     
     dv = DataValidation(type="list", formula1='"Cost,Benefit"', allow_blank=False)
@@ -157,7 +223,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     
     row += 1
     
-    # ALTERNATIVES
     ws_config[f'A{row}'] = "ALTERNATIVES DEFINITIONS (Fill in the yellow cells)"
     ws_config[f'A{row}'].font = Font(bold=True, size=12)
     ws_config[f'A{row}'].fill = section_fill
@@ -175,20 +240,16 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     
     for i in range(num_alternatives):
         ws_config.cell(row=row, column=1, value=f"A{i+1}")
-        
         name_cell = ws_config.cell(row=row, column=2, value=f"Alternative {i+1}")
         name_cell.fill = input_fill
         name_cell.border = thin_border
-        
         desc_cell = ws_config.cell(row=row, column=3, value="")
         desc_cell.fill = input_fill
         desc_cell.border = thin_border
-        
         row += 1
     
     row += 1
     
-    # OBJECTIVES
     ws_config[f'A{row}'] = "OBJECTIVES DEFINITIONS (Fill in the yellow cells)"
     ws_config[f'A{row}'].font = Font(bold=True, size=12)
     ws_config[f'A{row}'].fill = section_fill
@@ -206,20 +267,16 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     
     for i in range(num_objectives):
         ws_config.cell(row=row, column=1, value=f"O{i+1}")
-        
         name_cell = ws_config.cell(row=row, column=2, value=f"Objective {i+1}")
         name_cell.fill = input_fill
         name_cell.border = thin_border
-        
         desc_cell = ws_config.cell(row=row, column=3, value="")
         desc_cell.fill = input_fill
         desc_cell.border = thin_border
-        
         row += 1
     
     row += 2
     
-    # PARSIMONY
     ws_config[f'A{row}'] = "PARSIMONY BOUNDS (Step 5)"
     ws_config[f'A{row}'].font = Font(bold=True, size=12)
     ws_config[f'A{row}'].fill = section_fill
@@ -238,7 +295,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     
     row += 1
     
-    # THRESHOLDS
     ws_config[f'A{row}'] = "THRESHOLDS"
     ws_config[f'A{row}'].font = Font(bold=True, size=12)
     ws_config[f'A{row}'].fill = section_fill
@@ -267,9 +323,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws_config.column_dimensions['C'].width = 20
     ws_config.column_dimensions['D'].width = 30
     
-    # ================================================================
     # SHEET 1: COMPLETENESS
-    # ================================================================
     ws1 = wb.create_sheet("1_Completeness")
     ws1['A1'] = "Step 1: Completeness Evaluation"
     ws1['A1'].font = Font(bold=True, size=12)
@@ -291,7 +345,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for i in range(num_criteria):
         row_num = 5 + i
         ws1.cell(row=row_num, column=1, value=f"C{i+1}")
-        
         name_cell = ws1.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
         name_cell.border = thin_border
@@ -321,9 +374,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for e in range(num_experts + 2):
         ws1.column_dimensions[get_column_letter(3+e)].width = 12
     
-    # ================================================================
     # SHEET 2: OBJECTIVITY
-    # ================================================================
     ws2 = wb.create_sheet("2_Objectivity")
     ws2['A1'] = "Step 2: Objectivity/Subjectivity Classification"
     ws2['A1'].font = Font(bold=True, size=12)
@@ -345,7 +396,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for i in range(num_criteria):
         row_num = 5 + i
         ws2.cell(row=row_num, column=1, value=f"C{i+1}")
-        
         name_cell = ws2.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
         name_cell.border = thin_border
@@ -380,9 +430,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for e in range(num_experts + 3):
         ws2.column_dimensions[get_column_letter(3+e)].width = 12
     
-    # ================================================================
     # SHEET 3: MEASURABILITY
-    # ================================================================
     ws3 = wb.create_sheet("3_Measurability")
     ws3['A1'] = "Step 3: Measurability Assessment"
     ws3['A1'].font = Font(bold=True, size=12)
@@ -404,7 +452,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for i in range(num_criteria):
         row_num = 5 + i
         ws3.cell(row=row_num, column=1, value=f"C{i+1}")
-        
         name_cell = ws3.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
         name_cell.border = thin_border
@@ -447,9 +494,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for e in range(num_experts + 4):
         ws3.column_dimensions[get_column_letter(3+e)].width = 12
     
-    # ================================================================
     # SHEET 4: DISTINCTIVENESS
-    # ================================================================
     ws4 = wb.create_sheet("4_Distinctiveness")
     ws4['A1'] = "Step 4: Distinctiveness - Decision Matrices"
     ws4['A1'].font = Font(bold=True, size=12)
@@ -490,9 +535,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for c in range(num_criteria):
         ws4.column_dimensions[get_column_letter(2+c)].width = 10
     
-    # ================================================================
     # SHEET 6: SENSITIVITY
-    # ================================================================
     ws6 = wb.create_sheet("6_Sensitivity")
     ws6['A1'] = "Step 6: Sensitivity Analysis - Decision Matrices"
     ws6['A1'].font = Font(bold=True, size=12)
@@ -533,9 +576,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for c in range(num_criteria):
         ws6.column_dimensions[get_column_letter(2+c)].width = 10
     
-    # ================================================================
     # SHEET 7: COST-EFFECTIVENESS
-    # ================================================================
     ws7 = wb.create_sheet("7_Cost_Effectiveness")
     ws7['A1'] = "Step 7: Cost-Effectiveness Evaluation"
     ws7['A1'].font = Font(bold=True, size=12)
@@ -557,7 +598,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for i in range(num_criteria):
         row_num = 5 + i
         ws7.cell(row=row_num, column=1, value=f"C{i+1}")
-        
         name_cell = ws7.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
         name_cell.border = thin_border
@@ -606,9 +646,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for e in range(num_experts + 5):
         ws7.column_dimensions[get_column_letter(3+e)].width = 12
     
-    # ================================================================
     # SHEET 8: ALIGNMENT
-    # ================================================================
     ws8 = wb.create_sheet("8_Alignment")
     ws8['A1'] = "Step 8: Alignment Assessment"
     ws8['A1'].font = Font(bold=True, size=12)
@@ -630,7 +668,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for i in range(num_criteria):
         row_num = 5 + i
         ws8.cell(row=row_num, column=1, value=f"C{i+1}")
-        
         name_cell = ws8.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
         name_cell.border = thin_border
@@ -660,9 +697,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for e in range(num_experts + 2):
         ws8.column_dimensions[get_column_letter(3+e)].width = 12
     
-    # ================================================================
     # SHEET 9: COGNITIVE COHERENCE
-    # ================================================================
     ws9 = wb.create_sheet("9_Cognitive_Coherence")
     ws9['A1'] = "Step 9: Cognitive Coherence"
     ws9['A1'].font = Font(bold=True, size=12)
@@ -687,7 +722,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for i in range(num_criteria):
         row_num = 5 + i
         ws9.cell(row=row_num, column=1, value=f"C{i+1}")
-        
         name_cell = ws9.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
         name_cell.border = thin_border
@@ -717,9 +751,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for j in range(num_cross_ratings + 2):
         ws9.column_dimensions[get_column_letter(3+j)].width = 10
     
-    # ================================================================
     # SHEET 10: MONOTONE COHERENCE
-    # ================================================================
     ws10 = wb.create_sheet("10_Monotone_Coherence")
     ws10['A1'] = "Step 10: Monotone Coherence"
     ws10['A1'].font = Font(bold=True, size=12)
@@ -741,7 +773,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for i in range(num_criteria):
         row_num = 5 + i
         ws10.cell(row=row_num, column=1, value=f"C{i+1}")
-        
         name_cell = ws10.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
         name_cell.border = thin_border
@@ -770,9 +801,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for e in range(num_experts + 2):
         ws10.column_dimensions[get_column_letter(3+e)].width = 12
     
-    # ================================================================
     # SHEET 11: REPRESENTATIVENESS
-    # ================================================================
     ws11 = wb.create_sheet("11_Representativeness")
     ws11['A1'] = "Step 11: Representativeness"
     ws11['A1'].font = Font(bold=True, size=12)
@@ -829,8 +858,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         cell.alignment = Alignment(horizontal='center')
         cell.border = thin_border
     
-    consolidated_row_start = row + 1
-    
     for c in range(num_criteria):
         row += 1
         crit_cell = ws11.cell(row=row, column=1)
@@ -839,7 +866,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         
         for o in range(num_objectives):
             obj_col = get_column_letter(2 + o)
-            
             vote_refs = []
             for e in range(num_experts):
                 expert_row = expert_data_rows[e] + c
@@ -865,7 +891,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     for o in range(num_objectives + 1):
         ws11.column_dimensions[get_column_letter(2+o)].width = 10
     
-    # Save to BytesIO
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
@@ -874,15 +899,14 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
 
 
 # ================================================================
-# EXCEL READER - COMPLETE VERSION
+# EXCEL READER - COMPLETE
 # ================================================================
 
 def read_mcdm_template(file):
-    """Read filled MCDM Excel template and extract all data"""
+    """Read filled MCDM Excel template"""
     
     results = {}
     
-    # Read configuration
     df_config = pd.read_excel(file, sheet_name='0_Configuration', header=None)
     
     def find_row_with_text(df, text):
@@ -901,7 +925,6 @@ def read_mcdm_template(file):
     results['num_experts'] = num_experts
     results['num_objectives'] = num_objectives
     
-    # Extract criteria
     criteria_header_row = find_row_with_text(df_config, "CRITERIA DEFINITIONS")
     criteria_start_row = criteria_header_row + 2
     criteria_ids = []
@@ -918,7 +941,6 @@ def read_mcdm_template(file):
     results['criteria_names'] = criteria_names
     results['criteria_types'] = criteria_types
     
-    # Extract alternatives
     alternatives_header_row = find_row_with_text(df_config, "ALTERNATIVES DEFINITIONS")
     alternatives_start_row = alternatives_header_row + 2
     alternatives_ids = []
@@ -932,7 +954,6 @@ def read_mcdm_template(file):
     results['alternatives_ids'] = alternatives_ids
     results['alternatives_names'] = alternatives_names
     
-    # Extract objectives
     objectives_header_row = find_row_with_text(df_config, "OBJECTIVES DEFINITIONS")
     objectives_start_row = objectives_header_row + 2
     objectives_ids = []
@@ -946,7 +967,6 @@ def read_mcdm_template(file):
     results['objectives_ids'] = objectives_ids
     results['objectives_names'] = objectives_names
     
-    # Extract thresholds
     parsimony_header_row = find_row_with_text(df_config, "PARSIMONY")
     parsimony_start_row = parsimony_header_row + 1
     results['omega'] = int(df_config.iloc[parsimony_start_row, 1])
@@ -964,25 +984,21 @@ def read_mcdm_template(file):
     results['lambda'] = float(df_config.iloc[thresholds_start_row + 7, 1])
     results['mu'] = float(df_config.iloc[thresholds_start_row + 8, 1])
     
-    # Extract Step 1: Completeness
     df_comp = pd.read_excel(file, sheet_name='1_Completeness', skiprows=3, header=0)
     median_col_name = df_comp.columns[2 + num_experts]
     c_values = df_comp[median_col_name].head(num_criteria).tolist()
     results['c_values'] = c_values
     
-    # Extract Step 2: Objectivity
     df_obj = pd.read_excel(file, sheet_name='2_Objectivity', skiprows=3, header=0)
     binary_col_name = df_obj.columns[4 + num_experts]
     u_values = df_obj[binary_col_name].head(num_criteria).astype(int).tolist()
     results['u_values'] = u_values
     
-    # Extract Step 3: Measurability
     df_meas = pd.read_excel(file, sheet_name='3_Measurability', skiprows=3, header=0)
     median_col_name = df_meas.columns[2 + num_experts]
     m_values = df_meas[median_col_name].head(num_criteria).tolist()
     results['m_values'] = m_values
     
-    # Extract Step 4: Distinctiveness
     df_dist = pd.read_excel(file, sheet_name='4_Distinctiveness', header=None)
     
     decision_matrices = []
@@ -990,7 +1006,6 @@ def read_mcdm_template(file):
     
     for e in range(num_experts):
         data_start = current_row + 2
-        
         matrix_data = []
         for a in range(num_alternatives):
             row_data = []
@@ -1001,10 +1016,8 @@ def read_mcdm_template(file):
         
         matrix_df = pd.DataFrame(matrix_data, columns=criteria_ids)
         decision_matrices.append(matrix_df)
-        
         current_row = data_start + num_alternatives + 2
     
-    # Compute correlations
     correlations = []
     for matrix in decision_matrices:
         corr_matrix = matrix.corr().abs()
@@ -1012,10 +1025,8 @@ def read_mcdm_template(file):
     
     stacked = np.stack(correlations, axis=2)
     pooled_corr = np.median(stacked, axis=2)
-    
     results['r_mat'] = pooled_corr.tolist()
     
-    # Extract Step 6: Sensitivity
     df_sens = pd.read_excel(file, sheet_name='6_Sensitivity', header=None)
     
     decision_matrices_sens = []
@@ -1023,7 +1034,6 @@ def read_mcdm_template(file):
     
     for e in range(num_experts):
         data_start = current_row + 2
-        
         matrix_data = []
         for a in range(num_alternatives):
             row_data = []
@@ -1034,10 +1044,8 @@ def read_mcdm_template(file):
         
         matrix_df = pd.DataFrame(matrix_data, columns=criteria_ids)
         decision_matrices_sens.append(matrix_df)
-        
         current_row = data_start + num_alternatives + 2
     
-    # Normalize matrices
     def normalize_matrix(matrix, types):
         norm = matrix.copy()
         for idx, col in enumerate(matrix.columns):
@@ -1047,13 +1055,12 @@ def read_mcdm_template(file):
                 norm[col] = 1.0
             elif types[idx] == 'Benefit':
                 norm[col] = (matrix[col] - min_val) / (max_val - min_val)
-            else:  # Cost
+            else:
                 norm[col] = (max_val - matrix[col]) / (max_val - min_val)
         return norm
     
     normalized_matrices = [normalize_matrix(m, criteria_types) for m in decision_matrices_sens]
     
-    # Monte Carlo sensitivity
     num_simulations = 1000
     np.random.seed(42)
     random_weights = np.random.dirichlet(np.ones(num_criteria), num_simulations)
@@ -1077,32 +1084,27 @@ def read_mcdm_template(file):
     s_values = np.mean(sensitivity_results, axis=0).tolist()
     results['s_values'] = s_values
     
-    # Extract Step 7: Cost-Effectiveness
     df_cost = pd.read_excel(file, sheet_name='7_Cost_Effectiveness', skiprows=3, header=0)
     median_col_name = df_cost.columns[2 + num_experts]
     ce_values = df_cost[median_col_name].head(num_criteria).tolist()
     results['ce_values'] = ce_values
     
-    # Extract Step 8: Alignment
     df_align = pd.read_excel(file, sheet_name='8_Alignment', skiprows=3, header=0)
     median_col_name = df_align.columns[2 + num_experts]
     a_values = df_align[median_col_name].head(num_criteria).tolist()
     results['a_values'] = a_values
     
-    # Extract Step 9: Cognitive Coherence
     df_cog = pd.read_excel(file, sheet_name='9_Cognitive_Coherence', skiprows=3, header=0)
     num_cross_ratings = num_experts * (num_experts - 1)
     median_col_name = df_cog.columns[2 + num_cross_ratings]
     cc_values = df_cog[median_col_name].head(num_criteria).tolist()
     results['cc_values'] = cc_values
     
-    # Extract Step 10: Monotone Coherence
     df_mono = pd.read_excel(file, sheet_name='10_Monotone_Coherence', skiprows=3, header=0)
     unanimity_col_name = df_mono.columns[2 + num_experts]
     q_values = df_mono[unanimity_col_name].head(num_criteria).astype(int).tolist()
     results['q_values'] = q_values
     
-    # Extract Step 11: Representativeness
     df_repr = pd.read_excel(file, sheet_name='11_Representativeness', header=None)
     
     consolidated_row = None
@@ -1123,7 +1125,6 @@ def read_mcdm_template(file):
             g_matrix.append(row_data)
         g_matrix = np.array(g_matrix)
     
-    # Create objective mapping
     obj_map = {}
     for o in range(num_objectives):
         obj_idx = o + 1
@@ -1140,7 +1141,6 @@ def read_mcdm_template(file):
     Io = g_matrix.sum(axis=0).tolist()
     results['Io'] = Io
     
-    # Compute derived values
     I = list(range(1, num_criteria + 1))
     O = list(range(1, num_objectives + 1))
     results['I'] = I
@@ -1206,7 +1206,7 @@ def read_mcdm_template(file):
 
 
 # ================================================================
-# OPTIMIZATION MODEL - COMPLETE VERSION
+# OPTIMIZATION MODEL - COMPLETE
 # ================================================================
 
 def build_mcdm_model(data, weights):
@@ -1214,7 +1214,6 @@ def build_mcdm_model(data, weights):
     
     M = pyo.ConcreteModel()
     
-    # Extract data
     I = data['I']
     O = data['O']
     pairs = data['pairs']
@@ -1270,15 +1269,12 @@ def build_mcdm_model(data, weights):
     w11_minus = weights['w11_minus']
     w11_plus = weights['w11_plus']
     
-    # Sets
     M.I = pyo.Set(initialize=I)
     M.O = pyo.Set(initialize=O)
     M.P = pyo.Set(initialize=pairs, dimen=2)
     
-    # Decision variables
     M.x = pyo.Var(M.I, domain=pyo.Binary)
     
-    # Property gate binaries
     M.yc = pyo.Var(M.I, domain=pyo.Binary)
     M.ym = pyo.Var(M.I, domain=pyo.Binary)
     M.ys = pyo.Var(M.I, domain=pyo.Binary)
@@ -1303,7 +1299,6 @@ def build_mcdm_model(data, weights):
     M.do2_minus = pyo.Var(M.O, domain=pyo.NonNegativeIntegers)
     M.do2_plus = pyo.Var(M.O, domain=pyo.NonNegativeIntegers)
     
-    # Constraints
     M.comp1 = pyo.Constraint(M.I, rule=lambda M, i: c[i] - alpha <= M_big * M.yc[i] - eps)
     M.comp2 = pyo.Constraint(M.I, rule=lambda M, i: c[i] - alpha >= -M_big * (1 - M.yc[i]) - eps)
     M.comp3 = pyo.Constraint(M.I, rule=lambda M, i: M.x[i] <= M.yc[i])
@@ -1351,7 +1346,6 @@ def build_mcdm_model(data, weights):
     M.t2 = pyo.Constraint(M.P, rule=lambda M, i, k: M.t[(i, k)] <= M.x[k])
     M.t3 = pyo.Constraint(M.P, rule=lambda M, i, k: M.t[(i, k)] >= M.x[i] + M.x[k] - 1)
     
-    # Objective
     O_card = len(O)
     
     benefit = sum(
@@ -1367,9 +1361,7 @@ def build_mcdm_model(data, weights):
     )
     
     redundancy_pen = w4 * (sum(r[(i, k)] * M.t[(i, k)] for (i, k) in M.P) / tot_r)
-    
     parsimony_pen = (w5_minus * (M.d1_minus / omega)) + (w5_plus * (M.d2_plus / (len(I) - zeta)))
-    
     rep_pen = (
         w11_minus * (sum(M.do1_minus[o] / L[o] for o in M.O) / O_card)
         + w11_plus * (sum(M.do2_plus[o] / D[o] for o in M.O) / O_card)
@@ -1393,63 +1385,129 @@ def pick_solver():
 
 
 # ================================================================
-# STREAMLIT UI
+# UI HELPER FUNCTIONS
 # ================================================================
 
-def main():
-    st.title("🎯 MCDM Criteria Selection Tool")
-    st.markdown("### 11-Step Multi-Criteria Decision Analysis with Optimization")
+def show_progress_indicator(current_step):
+    """Display progress indicator"""
     
-    # Sidebar
-    with st.sidebar:
-        st.markdown("### 📊 Navigation")
-        page = st.radio("", [
-            "📝 1. Generate Template",
-            "📤 2. Upload & Extract",
-            "⚖️ 3. Set Weights",
-            "🚀 4. Run Optimization"
-        ])
-        
-        st.markdown("---")
-        if st.session_state.data:
-            st.markdown("**📈 Problem Info:**")
-            st.metric("Criteria", st.session_state.data['num_criteria'])
-            st.metric("Alternatives", st.session_state.data['num_alternatives'])
-            st.metric("Experts", st.session_state.data['num_experts'])
-            st.metric("Objectives", st.session_state.data['num_objectives'])
+    steps = [
+        ("1", "Generate Template", "📝"),
+        ("2", "Upload & Extract", "📤"),
+        ("3", "Set Weights", "⚖️"),
+        ("4", "Run Optimization", "🚀")
+    ]
     
-    # PAGE 1: GENERATE TEMPLATE
-    if page == "📝 1. Generate Template":
-        st.header("📝 Generate Excel Template")
-        
+    cols = st.columns(4)
+    
+    for idx, (step_num, step_name, icon) in enumerate(steps):
+        with cols[idx]:
+            if idx + 1 < current_step:
+                st.markdown(f"""
+                <div style="text-align: center;">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; 
+                                background: #10b981; color: white; 
+                                display: flex; align-items: center; justify-content: center;
+                                margin: 0 auto 0.5rem auto; font-weight: 600;">
+                        ✓
+                    </div>
+                    <div style="font-size: 0.875rem; color: #10b981; font-weight: 600;">{step_name}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            elif idx + 1 == current_step:
+                st.markdown(f"""
+                <div style="text-align: center;">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; 
+                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                color: white; display: flex; align-items: center; 
+                                justify-content: center; margin: 0 auto 0.5rem auto; 
+                                font-weight: 600; font-size: 1.25rem;">
+                        {icon}
+                    </div>
+                    <div style="font-size: 0.875rem; color: #667eea; font-weight: 600;">{step_name}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="text-align: center;">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; 
+                                background: #e5e7eb; color: #6b7280; 
+                                display: flex; align-items: center; justify-content: center;
+                                margin: 0 auto 0.5rem auto; font-weight: 600;">
+                        {step_num}
+                    </div>
+                    <div style="font-size: 0.875rem; color: #6b7280;">{step_name}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+
+def show_navigation_buttons(current_step):
+    """Show Next/Back buttons"""
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col1:
+        if current_step > 1:
+            if st.button("⬅️ Back", use_container_width=True, type="secondary"):
+                st.session_state.current_step = current_step - 1
+                st.rerun()
+    
+    with col3:
+        if current_step < 4:
+            can_proceed = False
+            if current_step == 1:
+                can_proceed = True
+            elif current_step == 2:
+                can_proceed = st.session_state.data is not None
+            elif current_step == 3:
+                can_proceed = st.session_state.weights is not None
+            
+            if st.button("Next ➡️", use_container_width=True, type="primary", disabled=not can_proceed):
+                st.session_state.current_step = current_step + 1
+                st.rerun()
+
+
+# ================================================================
+# STEP 1: GENERATE TEMPLATE
+# ================================================================
+
+def show_step1_generate_template():
+    st.header("📝 Step 1: Generate Excel Template")
+    st.markdown("Configure your problem parameters and generate a customized Excel template.")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Problem Structure")
+        num_criteria = st.number_input("Number of Criteria", min_value=1, value=16, step=1, key="num_criteria")
+        num_alternatives = st.number_input("Number of Alternatives", min_value=1, value=7, step=1, key="num_alt")
+        num_experts = st.number_input("Number of Experts", min_value=1, value=3, step=1, key="num_exp")
+        num_objectives = st.number_input("Number of Objectives", min_value=1, value=7, step=1, key="num_obj")
+    
+    with col2:
+        st.subheader("Parsimony Bounds")
+        omega = st.number_input("Target Minimum (ω)", min_value=1, value=5, step=1, key="omega")
+        zeta = st.number_input("Target Maximum (ζ)", min_value=1, value=9, step=1, key="zeta")
+        st.info("💡 Set bounds for the number of criteria to select")
+    
+    with st.expander("⚙️ Advanced Thresholds"):
         col1, col2 = st.columns(2)
-        
         with col1:
-            st.subheader("Problem Structure")
-            num_criteria = st.number_input("Number of Criteria", min_value=1, value=16, step=1)
-            num_alternatives = st.number_input("Number of Alternatives", min_value=1, value=7, step=1)
-            num_experts = st.number_input("Number of Experts", min_value=1, value=3, step=1)
-            num_objectives = st.number_input("Number of Objectives", min_value=1, value=7, step=1)
-        
+            alpha = st.number_input("Completeness (α)", value=6.0, key="alpha")
+            gamma_O = st.number_input("Measurability Objective (γ_O)", value=6.5, key="gamma_o")
+            gamma_S = st.number_input("Measurability Subjective (γ_S)", value=5.5, key="gamma_s")
+            delta = st.number_input("Distinctiveness (δ)", value=0.75, key="delta")
+            theta = st.number_input("Sensitivity (θ)", value=0.035, key="theta")
         with col2:
-            st.subheader("Parsimony Bounds")
-            omega = st.number_input("Target Minimum (ω)", min_value=1, value=5, step=1)
-            zeta = st.number_input("Target Maximum (ζ)", min_value=1, value=9, step=1)
-        
-        with st.expander("⚙️ Advanced Thresholds"):
-            col1, col2 = st.columns(2)
-            with col1:
-                alpha = st.number_input("Completeness (α)", value=6.0)
-                gamma_O = st.number_input("Measurability Objective (γ_O)", value=6.5)
-                gamma_S = st.number_input("Measurability Subjective (γ_S)", value=5.5)
-                delta = st.number_input("Distinctiveness (δ)", value=0.75)
-                theta = st.number_input("Sensitivity (θ)", value=0.035)
-            with col2:
-                tau_O = st.number_input("Cost-Effectiveness Objective (τ_O)", value=7.0)
-                tau_S = st.number_input("Cost-Effectiveness Subjective (τ_S)", value=6.0)
-                lambda_th = st.number_input("Alignment (λ)", value=6.5)
-                mu = st.number_input("Cognitive Coherence (μ)", value=7.0)
-        
+            tau_O = st.number_input("Cost-Effectiveness Objective (τ_O)", value=7.0, key="tau_o")
+            tau_S = st.number_input("Cost-Effectiveness Subjective (τ_S)", value=6.0, key="tau_s")
+            lambda_th = st.number_input("Alignment (λ)", value=6.5, key="lambda")
+            mu = st.number_input("Cognitive Coherence (μ)", value=7.0, key="mu")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
         if st.button("🎨 Generate Excel Template", type="primary", use_container_width=True):
             with st.spinner("Generating template..."):
                 try:
@@ -1460,124 +1518,324 @@ def main():
                     )
                     
                     st.success("✅ Template generated successfully!")
+                    
                     st.download_button(
                         label="📥 Download Excel Template",
                         data=buffer,
                         file_name=f"MCDM_Template_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
+                        use_container_width=True,
+                        type="primary"
                     )
                     
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
-    
-    # PAGE 2: UPLOAD & EXTRACT
-    elif page == "📤 2. Upload & Extract":
-        st.header("📤 Upload Filled Template")
-        
-        uploaded_file = st.file_uploader("Choose Excel file", type=['xlsx'])
-        
-        if uploaded_file and st.button("🔍 Extract Data", type="primary"):
-            with st.spinner("Reading Excel..."):
-                try:
-                    data = read_mcdm_template(uploaded_file)
-                    st.session_state.data = data
-                    
-                    st.success("✅ Data extracted!")
-                    
-                    col1, col2, col3, col4 = st.columns(4)
-                    col1.metric("Criteria", data['num_criteria'])
-                    col2.metric("Alternatives", data['num_alternatives'])
-                    col3.metric("Experts", data['num_experts'])
-                    col4.metric("Objectives", data['num_objectives'])
-                    
-                    with st.expander("📋 View Criteria"):
-                        for i, name in enumerate(data['criteria_names'], 1):
-                            st.write(f"**C{i}:** {name} ({data['criteria_types'][i-1]})")
+                    st.markdown("""
+                    <div class="info-box">
+                        <strong>📋 Next Steps:</strong><br>
+                        1. Download the Excel template<br>
+                        2. Fill in the yellow cells with expert data<br>
+                        3. Save the file<br>
+                        4. Click "Next" to proceed to upload
+                    </div>
+                    """, unsafe_allow_html=True)
                     
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
+
+
+# ================================================================
+# STEP 2: UPLOAD & EXTRACT
+# ================================================================
+
+def show_step2_upload_extract():
+    st.header("📤 Step 2: Upload Filled Template")
+    st.markdown("Upload your completed Excel template to extract the data.")
     
-    # PAGE 3: SET WEIGHTS
-    elif page == "⚖️ 3. Set Weights":
-        st.header("⚖️ Swing Weighting")
-        
-        if not st.session_state.data:
-            st.warning("⚠️ Upload data first!")
-            return
-        
-        components = {
-            'w1': 'Completeness (c_i)',
-            'w2': 'Objectivity (rho)',
-            'w3': 'Measurability (m_i)',
-            'w4': 'Distinctiveness (penalty)',
-            'w5_minus': 'Parsimony lower (penalty)',
-            'w6': 'Sensitivity (s_i)',
-            'w7': 'Cost-Effectiveness (ce_i)',
-            'w8': 'Alignment (a_i)',
-            'w9': 'Cognitive Coherence (cc_i)',
-            'w5_plus': 'Parsimony upper (penalty)',
-            'w11_minus': 'Representativeness min (penalty)',
-            'w11_plus': 'Representativeness max (penalty)'
-        }
-        
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            raw_weights = {}
-            for comp_key, comp_desc in components.items():
-                default = 0.1 if 'minus' not in comp_key and 'plus' not in comp_key else 0.05
-                raw_weights[comp_key] = st.slider(
-                    f"{comp_key}: {comp_desc}",
-                    0.0, 1.0, default, 0.01
-                )
-        
-        total = sum(raw_weights.values()) or 1
-        normalized = {k: v / total for k, v in raw_weights.items()}
-        st.session_state.weights = normalized
-        
+    uploaded_file = st.file_uploader("Choose Excel file", type=['xlsx'], key="upload")
+    
+    if uploaded_file:
+        col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.subheader("Normalized Weights")
-            for comp, weight in sorted(normalized.items(), key=lambda x: x[1], reverse=True):
-                st.metric(comp, f"{weight:.4f}", f"{weight*100:.1f}%")
+            if st.button("🔍 Extract Data", type="primary", use_container_width=True):
+                with st.spinner("Reading Excel file..."):
+                    try:
+                        data = read_mcdm_template(uploaded_file)
+                        st.session_state.data = data
+                        
+                        st.markdown("""
+                        <div class="success-box">
+                            <strong>✅ Data extracted successfully!</strong>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        col1, col2, col3, col4 = st.columns(4)
+                        col1.metric("Criteria", data['num_criteria'])
+                        col2.metric("Alternatives", data['num_alternatives'])
+                        col3.metric("Experts", data['num_experts'])
+                        col4.metric("Objectives", data['num_objectives'])
+                        
+                        with st.expander("📋 View Criteria", expanded=True):
+                            criteria_df = pd.DataFrame({
+                                'ID': [f"C{i+1}" for i in range(data['num_criteria'])],
+                                'Name': data['criteria_names'],
+                                'Type': data['criteria_types']
+                            })
+                            st.dataframe(criteria_df, use_container_width=True, hide_index=True)
+                        
+                        with st.expander("🎯 View Objectives"):
+                            for i, name in enumerate(data['objectives_names'], 1):
+                                criteria_in_obj = data['obj_map'].get(i, [])
+                                st.write(f"**O{i}: {name}** → Criteria: {criteria_in_obj}")
+                        
+                        st.info("✅ Ready! Click 'Next' to set weights.")
+                        
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+
+
+# ================================================================
+# STEP 3: SET WEIGHTS
+# ================================================================
+
+def show_step3_set_weights():
+    st.header("⚖️ Step 3: Swing Weighting")
     
-    # PAGE 4: RUN OPTIMIZATION
-    elif page == "🚀 4. Run Optimization":
-        st.header("🚀 Run Optimization")
+    if not st.session_state.data:
+        st.warning("⚠️ Please upload and extract data first!")
+        return
+    
+    st.markdown("""
+    <div class="info-box">
+        <strong>💡 How to use:</strong><br>
+        Adjust the sliders to indicate the importance of each component (0.0 to 1.0).<br>
+        Weights will be automatically normalized to sum to 1.0.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    components = {
+        'w1': ('Completeness', 'How well criteria cover decision aspects', 0.10),
+        'w2': ('Objectivity', 'Proportion of objective vs subjective criteria', 0.10),
+        'w3': ('Measurability', 'How easily criteria can be quantified', 0.10),
+        'w4': ('Distinctiveness', 'Penalty for highly correlated criteria', 0.10),
+        'w5_minus': ('Parsimony Lower', 'Penalty for having too few criteria', 0.05),
+        'w6': ('Sensitivity', 'Impact of criteria on decision outcomes', 0.10),
+        'w7': ('Cost-Effectiveness', 'Resource efficiency of criteria', 0.10),
+        'w8': ('Alignment', 'How well criteria align with objectives', 0.10),
+        'w9': ('Cognitive Coherence', 'Clarity and consistency of definitions', 0.10),
+        'w5_plus': ('Parsimony Upper', 'Penalty for having too many criteria', 0.05),
+        'w11_minus': ('Representativeness Min', 'Penalty for insufficient coverage', 0.05),
+        'w11_plus': ('Representativeness Max', 'Penalty for excessive coverage', 0.05)
+    }
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.subheader("Adjust Component Weights")
+        raw_weights = {}
         
-        if not st.session_state.data or not st.session_state.weights:
-            st.warning("⚠️ Complete previous steps first!")
-            return
+        for comp_key, (comp_name, comp_desc, default_val) in components.items():
+            slider_key = f"weight_{comp_key}"
+            if slider_key not in st.session_state:
+                st.session_state[slider_key] = default_val
+            
+            value = st.slider(
+                f"**{comp_name}**",
+                min_value=0.0,
+                max_value=1.0,
+                value=st.session_state[slider_key],
+                step=0.01,
+                key=slider_key,
+                help=comp_desc
+            )
+            raw_weights[comp_key] = value
+    
+    total = sum(raw_weights.values()) or 1
+    normalized = {k: v / total for k, v in raw_weights.items()}
+    st.session_state.weights = normalized
+    
+    with col2:
+        st.subheader("Normalized Weights")
         
+        sorted_weights = sorted(normalized.items(), key=lambda x: x[1], reverse=True)
+        
+        for comp_key, weight in sorted_weights:
+            comp_name = components[comp_key][0]
+            percentage = weight * 100
+            
+            if weight >= 0.10:
+                color = "#667eea"
+            elif weight >= 0.05:
+                color = "#f59e0b"
+            else:
+                color = "#6b7280"
+            
+            st.markdown(f"""
+            <div style="background: white; padding: 0.75rem; border-radius: 8px; 
+                        border-left: 4px solid {color}; margin-bottom: 0.5rem;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; color: #1f2937;">{comp_name}</div>
+                        <div style="font-size: 0.875rem; color: #6b7280;">{comp_key}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: {color};">
+                            {weight:.4f}
+                        </div>
+                        <div style="font-size: 0.75rem; color: #10b981;">
+                            ↑ {percentage:.1f}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div style="background: #f3f4f6; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+            <strong>Sum:</strong> {sum(normalized.values()):.10f}
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.success("✅ Weights configured! Click 'Next' to run optimization.")
+
+
+# ================================================================
+# STEP 4: RUN OPTIMIZATION
+# ================================================================
+
+def show_step4_run_optimization():
+    st.header("🚀 Step 4: Run Optimization")
+    
+    if not st.session_state.data or not st.session_state.weights:
+        st.warning("⚠️ Please complete previous steps first!")
+        return
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
         if st.button("🎯 Run Optimization", type="primary", use_container_width=True):
-            with st.spinner("Solving..."):
+            with st.spinner("Building and solving optimization model..."):
                 try:
                     model = build_mcdm_model(st.session_state.data, st.session_state.weights)
                     solver = pick_solver()
                     result = solver.solve(model, tee=False)
                     
+                    st.session_state.model = model
+                    st.session_state.result = result
+                    
                     if result.solver.termination_condition == TerminationCondition.optimal:
-                        st.success("✅ Optimization complete!")
+                        st.markdown("""
+                        <div class="success-box">
+                            <strong>✅ Optimization completed successfully!</strong>
+                        </div>
+                        """, unsafe_allow_html=True)
                         
                         data = st.session_state.data
                         I = data['I']
                         x_val = {i: float(pyo.value(model.x[i])) for i in I}
                         selected = [i for i in I if x_val[i] > 0.5]
                         
-                        st.subheader(f"✅ Selected {len(selected)} Criteria")
-                        for i in selected:
-                            st.write(f"**C{i}:** {data['criteria_names'][i-1]}")
-                        
                         col1, col2, col3 = st.columns(3)
-                        col1.metric("N", int(round(pyo.value(model.N))))
-                        col2.metric("ρ", f"{float(pyo.value(model.rho)):.4f}")
-                        col3.metric("Objective", f"{float(pyo.value(model.obj)):.6f}")
+                        col1.metric("Selected Criteria", f"{len(selected)}/{len(I)}")
+                        col2.metric("Objectivity Ratio (ρ)", f"{float(pyo.value(model.rho)):.4f}")
+                        col3.metric("Objective Value", f"{float(pyo.value(model.obj)):.6f}")
+                        
+                        st.subheader("✅ Selected Criteria")
+                        selected_df = pd.DataFrame({
+                            'ID': [f"C{i}" for i in selected],
+                            'Name': [data['criteria_names'][i-1] for i in selected],
+                            'Type': [data['criteria_types'][i-1] for i in selected]
+                        })
+                        st.dataframe(selected_df, use_container_width=True, hide_index=True)
+                        
+                        with st.expander("📊 View Detailed Results"):
+                            st.markdown("### Objective Breakdown")
+                            
+                            c, m, s, ce, a, cc = data['c'], data['m'], data['s'], data['ce'], data['a'], data['cc']
+                            tot_c, tot_m, tot_s = data['tot_c'], data['tot_m'], data['tot_s']
+                            tot_ce, tot_a, tot_cc = data['tot_ce'], data['tot_a'], data['tot_cc']
+                            
+                            weights = st.session_state.weights
+                            w1, w2, w3, w6, w7, w8, w9 = weights['w1'], weights['w2'], weights['w3'], weights['w6'], weights['w7'], weights['w8'], weights['w9']
+                            
+                            term_w1 = w1 * sum((c[i] / tot_c) * x_val[i] for i in I)
+                            term_w3 = w3 * sum((m[i] / tot_m) * x_val[i] for i in I)
+                            term_w6 = w6 * sum((s[i] / tot_s) * x_val[i] for i in I)
+                            term_w7 = w7 * sum((ce[i] / tot_ce) * x_val[i] for i in I)
+                            term_w8 = w8 * sum((a[i] / tot_a) * x_val[i] for i in I)
+                            term_w9 = w9 * sum((cc[i] / tot_cc) * x_val[i] for i in I)
+                            
+                            rho_val = float(pyo.value(model.rho))
+                            term_w2 = w2 * rho_val
+                            
+                            st.write("**Positive Components:**")
+                            st.write(f"- Completeness: {term_w1:.6f}")
+                            st.write(f"- Objectivity (ρ={rho_val:.4f}): {term_w2:.6f}")
+                            st.write(f"- Measurability: {term_w3:.6f}")
+                            st.write(f"- Sensitivity: {term_w6:.6f}")
+                            st.write(f"- Cost-Effectiveness: {term_w7:.6f}")
+                            st.write(f"- Alignment: {term_w8:.6f}")
+                            st.write(f"- Cognitive Coherence: {term_w9:.6f}")
                         
                     else:
-                        st.error("❌ No solution found")
+                        st.error("❌ No optimal solution found. Consider relaxing thresholds.")
                         
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
+                    st.exception(e)
+
+
+# ================================================================
+# MAIN APPLICATION
+# ================================================================
+
+def main():
+    st.markdown('<h1 class="main-title">🎯 MCDM Criteria Selection Tool</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-title">11-Step Multi-Criteria Decision Analysis with Optimization</p>', unsafe_allow_html=True)
+    
+    show_progress_indicator(st.session_state.current_step)
+    st.markdown("---")
+    
+    with st.sidebar:
+        st.markdown("### 📊 Problem Information")
+        
+        if st.session_state.data:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Criteria", st.session_state.data['num_criteria'])
+                st.metric("Experts", st.session_state.data['num_experts'])
+            with col2:
+                st.metric("Alternatives", st.session_state.data['num_alternatives'])
+                st.metric("Objectives", st.session_state.data['num_objectives'])
+        else:
+            st.info("Upload data to see problem details")
+        
+        st.markdown("---")
+        
+        st.markdown("### 🧭 Quick Navigation")
+        if st.button("📝 Step 1: Generate", use_container_width=True, type="secondary"):
+            st.session_state.current_step = 1
+            st.rerun()
+        if st.button("📤 Step 2: Upload", use_container_width=True, type="secondary"):
+            st.session_state.current_step = 2
+            st.rerun()
+        if st.button("⚖️ Step 3: Weights", use_container_width=True, type="secondary", disabled=not st.session_state.data):
+            st.session_state.current_step = 3
+            st.rerun()
+        if st.button("🚀 Step 4: Optimize", use_container_width=True, type="secondary", disabled=not st.session_state.weights):
+            st.session_state.current_step = 4
+            st.rerun()
+    
+    if st.session_state.current_step == 1:
+        show_step1_generate_template()
+    elif st.session_state.current_step == 2:
+        show_step2_upload_extract()
+    elif st.session_state.current_step == 3:
+        show_step3_set_weights()
+    elif st.session_state.current_step == 4:
+        show_step4_run_optimization()
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("---")
+    show_navigation_buttons(st.session_state.current_step)
 
 
 if __name__ == "__main__":
