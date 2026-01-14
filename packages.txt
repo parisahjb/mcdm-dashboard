@@ -1,1 +1,13 @@
 coinor-cbc
+glpk-utils
+```
+
+**Complete File Structure:**
+
+Your GitHub repository should have:
+```
+mcdm-dashboard/
+├── app.py
+├── requirements.txt
+├── packages.txt
+└── README.md (optional)
