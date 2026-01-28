@@ -18,7 +18,7 @@ import io
 # ================================================================
 st.set_page_config(
     page_title="Criteria Retrieval, Extraction and Selection Tool (CREST)",
-    page_icon="🎯",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -1581,7 +1581,7 @@ def show_step2_upload_extract():
                             })
                             st.dataframe(criteria_df, use_container_width=True, hide_index=True)
                         
-                        with st.expander("🎯 View Objectives"):
+                        with st.expander(" View Objectives"):
                             for i, name in enumerate(data['objectives_names'], 1):
                                 criteria_in_obj = data['obj_map'].get(i, [])
                                 st.write(f"**O{i}: {name}** → Criteria: {criteria_in_obj}")
@@ -1711,7 +1711,7 @@ def show_step4_run_optimization():
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("🎯 Run Optimization", type="primary", use_container_width=True):
+        if st.button(" Run Optimization", type="primary", use_container_width=True):
             with st.spinner("Building and solving optimization model..."):
                 try:
                     model = build_mcdm_model(st.session_state.data, st.session_state.weights)
@@ -1788,7 +1788,7 @@ def show_step4_run_optimization():
 # ================================================================
 
 def main():
-    st.markdown('<h1 class="main-title">🎯 Criteria Retrieval, Extraction and Selection Tool (CREST)</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title"> Criteria Retrieval, Extraction and Selection Tool (CREST)</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">11-Step Multi-Criteria Decision Analysis with Optimization</p>', unsafe_allow_html=True)
     
     show_progress_indicator(st.session_state.current_step)
