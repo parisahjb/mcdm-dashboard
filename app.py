@@ -1502,7 +1502,7 @@ def show_step1_generate_template():
         zeta = st.number_input("Target Maximum (ζ)", min_value=1, value=9, step=1, key="zeta")
         st.info("💡 Set bounds for the number of criteria to select")
     
-    with st.expander("⚙️ Advanced Thresholds"):
+    with st.expander("⚙️ Other Thresholds"):
         col1, col2 = st.columns(2)
         with col1:
             alpha = st.number_input("Completeness (α)", value=6.0, key="alpha")
