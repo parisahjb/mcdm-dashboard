@@ -108,6 +108,9 @@ st.markdown("""
 # ================================================================
 # SESSION STATE INITIALIZATION
 # ================================================================
+# ================================================================
+# SESSION STATE INITIALIZATION
+# ================================================================
 if 'data' not in st.session_state:
     st.session_state.data = None
 if 'weights' not in st.session_state:
@@ -120,6 +123,8 @@ if 'config' not in st.session_state:
     st.session_state.config = None
 if 'current_step' not in st.session_state:
     st.session_state.current_step = 1
+if 'reference_component' not in st.session_state:
+    st.session_state.reference_component = 'w1'
 
 # ================================================================
 # EXCEL TEMPLATE GENERATOR - COMPLETE
