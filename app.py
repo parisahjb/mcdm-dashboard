@@ -40,7 +40,14 @@ st.markdown("""
         color: #6b7280;
         margin-bottom: 2rem;
     }
-    
+    .reference-box {
+        background: #fef3c7;
+        border: 2px solid #f59e0b;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+        font-weight: 600;
+    }
     .stButton button {
         border-radius: 8px;
         padding: 0.5rem 1.5rem;
@@ -1605,60 +1612,106 @@ def show_step3_set_weights():
     
     st.markdown("""
     <div class="info-box">
-        <strong>💡 How to use:</strong><br>
-        Adjust the sliders to indicate the importance of each component (0.0 to 1.0).<br>
-        Weights will be automatically normalized to sum to 1.0.
+        <strong>💡 Classical Swing Weighting Method:</strong><br>
+        1. Select the component with the most valuable swing from worst to best performance<br>
+        2. That component is assigned a reference value of 1.0<br>
+        3. Rate all other components relative to the reference (0.0 = no value, 1.0 = equally valuable)<br>
+        4. Weights are automatically normalized to sum to 1.0
     </div>
     """, unsafe_allow_html=True)
     
     components = {
-        'w1': ('Completeness', 'How well criteria cover decision aspects', 0.10),
-        'w2': ('Objectivity', 'Proportion of objective vs subjective criteria', 0.10),
-        'w3': ('Measurability', 'How easily criteria can be quantified', 0.10),
-        'w4': ('Distinctiveness', 'Penalty for highly correlated criteria', 0.10),
-        'w5_minus': ('Parsimony Lower', 'Penalty for having too few criteria', 0.05),
-        'w6': ('Sensitivity', 'Impact of criteria on decision outcomes', 0.10),
-        'w7': ('Cost-Effectiveness', 'Resource efficiency of criteria', 0.10),
-        'w8': ('Alignment', 'How well criteria align with objectives', 0.10),
-        'w9': ('Cognitive Coherence', 'Clarity and consistency of definitions', 0.10),
-        'w5_plus': ('Parsimony Upper', 'Penalty for having too many criteria', 0.05),
-        'w11_minus': ('Representativeness Min', 'Penalty for insufficient coverage', 0.05),
-        'w11_plus': ('Representativeness Max', 'Penalty for excessive coverage', 0.05)
+        'w1': ('Completeness', 'How well criteria cover decision aspects'),
+        'w2': ('Objectivity', 'Proportion of objective vs subjective criteria'),
+        'w3': ('Measurability', 'How easily criteria can be quantified'),
+        'w4': ('Distinctiveness', 'Penalty for highly correlated criteria'),
+        'w5_minus': ('Parsimony Lower', 'Penalty for having too few criteria'),
+        'w6': ('Sensitivity', 'Impact of criteria on decision outcomes'),
+        'w7': ('Cost-Effectiveness', 'Resource efficiency of criteria'),
+        'w8': ('Alignment', 'How well criteria align with objectives'),
+        'w9': ('Cognitive Coherence', 'Clarity and consistency of definitions'),
+        'w5_plus': ('Parsimony Upper', 'Penalty for having too many criteria'),
+        'w11_minus': ('Representativeness Min', 'Penalty for insufficient coverage'),
+        'w11_plus': ('Representativeness Max', 'Penalty for excessive coverage')
     }
     
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.subheader("Adjust Component Weights")
-        raw_weights = {}
+        # Step 1: Select reference component
+        st.subheader("Step 1: Select Reference Component")
+        st.markdown("**Which component has the MOST valuable swing from worst to best performance?**")
         
-        for comp_key, (comp_name, comp_desc, default_val) in components.items():
-            slider_key = f"weight_{comp_key}"
-            if slider_key not in st.session_state:
-                st.session_state[slider_key] = default_val
-            
-            value = st.slider(
-                f"**{comp_name}**",
-                min_value=0.0,
-                max_value=1.0,
-                value=st.session_state[slider_key],
-                step=0.01,
-                key=slider_key,
-                help=comp_desc
-            )
-            raw_weights[comp_key] = value
+        reference_component = st.selectbox(
+            "Reference Component (automatically set to 1.0)",
+            options=list(components.keys()),
+            format_func=lambda x: f"{components[x][0]} - {components[x][1]}",
+            key="ref_component_select",
+            index=list(components.keys()).index(st.session_state.reference_component)
+        )
+        
+        st.session_state.reference_component = reference_component
+        
+        st.markdown(f"""
+        <div class="reference-box">
+            <strong>🎯 Reference: {components[reference_component][0]}</strong><br>
+            This component is set to 1.0 (maximum value)
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Step 2: Rate other components relative to reference
+        st.subheader("Step 2: Rate Other Components Relative to Reference")
+        st.markdown(f"**For each component below, rate how valuable its swing is compared to *{components[reference_component][0]}***")
+        st.markdown("*Scale: 0.0 = no value, 0.5 = half as valuable, 1.0 = equally valuable*")
+        
+        raw_weights = {reference_component: 1.0}
+        
+        for comp_key, (comp_name, comp_desc) in components.items():
+            if comp_key != reference_component:
+                slider_key = f"weight_{comp_key}"
+                
+                # Initialize slider values if not present
+                if slider_key not in st.session_state:
+                    st.session_state[slider_key] = 0.5  # Default to 50% of reference
+                
+                value = st.slider(
+                    f"**{comp_name}** relative to {components[reference_component][0]}",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=st.session_state[slider_key],
+                    step=0.05,
+                    key=slider_key,
+                    help=f"{comp_desc}\n\n1.0 = As valuable as {components[reference_component][0]}\n0.5 = Half as valuable\n0.0 = Not valuable"
+                )
+                raw_weights[comp_key] = value
     
-    total = sum(raw_weights.values()) or 1
+    # Normalize weights
+    total = sum(raw_weights.values())
     normalized = {k: v / total for k, v in raw_weights.items()}
     st.session_state.weights = normalized
     
     with col2:
         st.subheader("Normalized Weights")
         
-        sorted_weights = sorted(normalized.items(), key=lambda x: x[1], reverse=True)
+        st.markdown(f"""
+        <div style="background: #fef3c7; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; border: 2px solid #f59e0b;">
+            <div style="font-weight: 600; color: #92400e;">🎯 Reference Component:</div>
+            <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">{components[reference_component][0]}</div>
+            <div style="font-size: 0.875rem; color: #92400e;">Raw: 1.000 → Normalized: {normalized[reference_component]:.4f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        sorted_weights = sorted(
+            [(k, v) for k, v in normalized.items() if k != reference_component], 
+            key=lambda x: x[1], 
+            reverse=True
+        )
         
         for comp_key, weight in sorted_weights:
             comp_name = components[comp_key][0]
+            raw_value = raw_weights[comp_key]
             percentage = weight * 100
             
             if weight >= 0.10:
@@ -1675,14 +1728,14 @@ def show_step3_set_weights():
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <div style="font-weight: 600; color: #1f2937;">{comp_name}</div>
-                        <div style="font-size: 0.875rem; color: #6b7280;">{comp_key}</div>
+                        <div style="font-size: 0.875rem; color: #6b7280;">{comp_key} (raw: {raw_value:.2f})</div>
                     </div>
                     <div style="text-align: right;">
                         <div style="font-size: 1.5rem; font-weight: 700; color: {color};">
                             {weight:.4f}
                         </div>
                         <div style="font-size: 0.75rem; color: #10b981;">
-                            ↑ {percentage:.1f}%
+                            {percentage:.1f}%
                         </div>
                     </div>
                 </div>
@@ -1691,11 +1744,11 @@ def show_step3_set_weights():
         
         st.markdown(f"""
         <div style="background: #f3f4f6; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
-            <strong>Sum:</strong> {sum(normalized.values()):.10f}
+            <strong>Total Sum:</strong> {sum(normalized.values()):.10f}
         </div>
         """, unsafe_allow_html=True)
     
-    st.success("✅ Weights configured! Click 'Next' to run optimization.")
+    st.success("✅ Weights configured using classical swing weighting! Click 'Next' to run optimization.")
 
 
 # ================================================================
