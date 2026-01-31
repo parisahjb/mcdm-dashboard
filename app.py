@@ -1688,7 +1688,11 @@ def show_step3_set_weights():
         raw_weights = {reference_component: 100.0}
         
         for comp_key, (comp_name, comp_desc) in components.items():
-            if slider_key not in st.session_state:
+            if comp_key != reference_component:
+                slider_key = f"weight_{comp_key}"
+                
+                # Initialize slider values if not present
+                if slider_key not in st.session_state:
                     st.session_state[slider_key] = 50  # Default to 50% of reference
                 
                 value = st.slider(
