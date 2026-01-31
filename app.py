@@ -131,7 +131,7 @@ if 'reference_component' not in st.session_state:
 # ================================================================
 
 def generate_excel_template(num_criteria, num_alternatives, num_experts, num_objectives,
-                           omega, zeta, alpha, gamma_O, gamma_S, delta, theta,
+                           omega, zeta, L_o, U_o, alpha, gamma_O, gamma_S, delta, theta,
                            tau_O, tau_S, lambda_th, mu):
     """Generate complete Excel template with all 11 sheets"""
     
@@ -142,6 +142,8 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         'num_objectives': num_objectives,
         'omega': omega,
         'zeta': zeta,
+        'L_o': L_o,
+        'U_o': U_o,
         'alpha': alpha,
         'gamma_O': gamma_O,
         'gamma_S': gamma_S,
@@ -289,7 +291,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     
     row += 2
     
-    ws_config[f'A{row}'] = "PARSIMONY BOUNDS (Step 5)"
+    ws_config[f'A{row}'] = "PARSIMONY BOUNDS"
     ws_config[f'A{row}'].font = Font(bold=True, size=12)
     ws_config[f'A{row}'].fill = section_fill
     ws_config.merge_cells(f'A{row}:D{row}')
@@ -298,6 +300,8 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     parsimony_data = [
         ["Target Minimum (ω)", omega],
         ["Target Maximum (ζ)", zeta],
+        ["Min representation per objective L(o)", L_o],
+        ["Max representation per objective U(o)", U_o],
     ]
     
     for label, value in parsimony_data:
@@ -983,6 +987,8 @@ def read_mcdm_template(file):
     parsimony_start_row = parsimony_header_row + 1
     results['omega'] = int(df_config.iloc[parsimony_start_row, 1])
     results['zeta'] = int(df_config.iloc[parsimony_start_row + 1, 1])
+    results['L_o'] = int(df_config.iloc[parsimony_start_row + 2, 1])
+    results['U_o'] = int(df_config.iloc[parsimony_start_row + 3, 1])
     
     thresholds_header_row = find_row_with_text(df_config, "THRESHOLDS")
     thresholds_start_row = thresholds_header_row + 1
@@ -1195,8 +1201,10 @@ def read_mcdm_template(file):
     results['e_rp_dict'] = e_rp_dict
     results['Io_dict'] = Io_dict
     
-    L = {o: 1 for o in O}
-    U = {o: 2 for o in O}
+    L_o_val = results.get('L_o', 1)
+    U_o_val = results.get('U_o', 2)
+    L = {o: L_o_val for o in O}
+    U = {o: U_o_val for o in O}
     results['L'] = L
     results['U'] = U
     
@@ -1497,11 +1505,17 @@ def show_step1_generate_template():
         num_objectives = st.number_input("Number of Objectives", min_value=1, value=7, step=1, key="num_obj")
     
     with col2:
-        st.subheader("Parsimony Bounds")
-        omega = st.number_input("Target Minimum (ω)", min_value=1, value=5, step=1, key="omega")
-        zeta = st.number_input("Target Maximum (ζ)", min_value=1, value=9, step=1, key="zeta")
-        st.info("💡 Set bounds for the number of criteria to select")
-    
+            st.subheader("Parsimony Bounds")
+            omega = st.number_input("Target Minimum (ω)", min_value=1, value=5, step=1, key="omega")
+            zeta = st.number_input("Target Maximum (ζ)", min_value=1, value=9, step=1, key="zeta")
+            st.info("💡 Set bounds for the number of criteria to select")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.subheader("Objective Representation Bounds")
+            L_o = st.number_input("Min representation per objective L(o)", min_value=1, value=1, step=1, key="L_o")
+            U_o = st.number_input("Max representation per objective U(o)", min_value=1, value=2, step=1, key="U_o")
+            st.info("💡 Set bounds for criteria per objective")
+        
     with st.expander("⚙️ Other Thresholds"):
         col1, col2 = st.columns(2)
         with col1:
@@ -1525,7 +1539,7 @@ def show_step1_generate_template():
                 try:
                     buffer = generate_excel_template(
                         int(num_criteria), int(num_alternatives), int(num_experts), int(num_objectives),
-                        int(omega), int(zeta), alpha, gamma_O, gamma_S, delta, theta,
+                        int(omega), int(zeta), int(L_o), int(U_o), alpha, gamma_O, gamma_S, delta, theta,
                         tau_O, tau_S, lambda_th, mu
                     )
                     
@@ -1648,7 +1662,7 @@ def show_step3_set_weights():
         st.markdown("**Which component has the MOST valuable swing from worst to best performance?**")
         
         reference_component = st.selectbox(
-            "Reference Component (automatically set to 1.0)",
+            "Reference Component (automatically set to 100)",
             options=list(components.keys()),
             format_func=lambda x: f"{components[x][0]} - {components[x][1]}",
             key="ref_component_select",
@@ -1660,7 +1674,7 @@ def show_step3_set_weights():
         st.markdown(f"""
         <div class="reference-box">
             <strong>🎯 Reference: {components[reference_component][0]}</strong><br>
-            This component is set to 1.0 (maximum value)
+            This component is set to 100 (maximum value)
         </div>
         """, unsafe_allow_html=True)
         
@@ -1669,26 +1683,22 @@ def show_step3_set_weights():
         # Step 2: Rate other components relative to reference
         st.subheader("Step 2: Rate Other Components Relative to Reference")
         st.markdown(f"**For each component below, rate how valuable its swing is compared to *{components[reference_component][0]}***")
-        st.markdown("*Scale: 0.0 = no value, 0.5 = half as valuable, 1.0 = equally valuable*")
+        st.markdown("*Scale: 0 = no value, 50 = half as valuable, 100 = equally valuable*")
         
-        raw_weights = {reference_component: 1.0}
+        raw_weights = {reference_component: 100.0}
         
         for comp_key, (comp_name, comp_desc) in components.items():
-            if comp_key != reference_component:
-                slider_key = f"weight_{comp_key}"
-                
-                # Initialize slider values if not present
-                if slider_key not in st.session_state:
-                    st.session_state[slider_key] = 0.5  # Default to 50% of reference
+            if slider_key not in st.session_state:
+                    st.session_state[slider_key] = 50  # Default to 50% of reference
                 
                 value = st.slider(
                     f"**{comp_name}** relative to {components[reference_component][0]}",
-                    min_value=0.0,
-                    max_value=1.0,
+                    min_value=0,
+                    max_value=100,
                     value=st.session_state[slider_key],
-                    step=0.05,
+                    step=5,
                     key=slider_key,
-                    help=f"{comp_desc}\n\n1.0 = As valuable as {components[reference_component][0]}\n0.5 = Half as valuable\n0.0 = Not valuable"
+                    help=f"{comp_desc}\n\n100 = As valuable as {components[reference_component][0]}\n50 = Half as valuable\n0 = Not valuable"
                 )
                 raw_weights[comp_key] = value
     
@@ -1704,7 +1714,7 @@ def show_step3_set_weights():
         <div style="background: #fef3c7; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; border: 2px solid #f59e0b;">
             <div style="font-weight: 600; color: #92400e;">🎯 Reference Component:</div>
             <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">{components[reference_component][0]}</div>
-            <div style="font-size: 0.875rem; color: #92400e;">Raw: 1.000 → Normalized: {normalized[reference_component]:.4f}</div>
+            <div style="font-size: 0.875rem; color: #92400e;">Raw: 100 → Normalized: {normalized[reference_component]:.4f}</div>
         </div>
         """, unsafe_allow_html=True)
         
@@ -1733,7 +1743,7 @@ def show_step3_set_weights():
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <div style="font-weight: 600; color: #1f2937;">{comp_name}</div>
-                        <div style="font-size: 0.875rem; color: #6b7280;">{comp_key} (raw: {raw_value:.2f})</div>
+                        <div style="font-size: 0.875rem; color: #6b7280;">{comp_key} (raw: {raw_value:.0f})</div>
                     </div>
                     <div style="text-align: right;">
                         <div style="font-size: 1.5rem; font-weight: 700; color: {color};">
