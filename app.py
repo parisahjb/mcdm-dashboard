@@ -536,7 +536,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         
         for a in range(num_alternatives):
             alt_cell = ws4.cell(row=row, column=1)
-            alt_cell.value = f'=0_Configuration!$B${ALTERNATIVES_START_ROW + 1 + a}'
+            alt_cell.value = f'=0_Configuration!$B${ALTERNATIVES_START_ROW  + a}'
             alt_cell.border = thin_border
             
             for c in range(num_criteria):
@@ -577,7 +577,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         
         for a in range(num_alternatives):
             alt_cell = ws6.cell(row=row, column=1)
-            alt_cell.value = f'=0_Configuration!$B${ALTERNATIVES_START_ROW + 1 + a}'
+            alt_cell.value = f'=0_Configuration!$B${ALTERNATIVES_START_ROW  + a}'
             alt_cell.border = thin_border
             
             for c in range(num_criteria):
