@@ -1689,43 +1689,48 @@ def show_step3_set_weights():
         
         for comp_key, (comp_name, comp_desc) in components.items():
             if comp_key != reference_component:
-                slider_key = f"weight_{comp_key}"
+                # Use a single shared key for the true value
+                value_key = f"value_{comp_key}"
                 
-                # Initialize values if not present
-                if slider_key not in st.session_state:
-                    st.session_state[slider_key] = 50.0  # Default to 50% of reference
+                # Initialize if not present
+                if value_key not in st.session_state:
+                    st.session_state[value_key] = 50.0
                 
                 # Create two columns: slider and number input
                 col_slider, col_input = st.columns([3, 1])
                 
                 with col_slider:
-                    slider_value = st.slider(
+                    slider_val = st.slider(
                         f"**{comp_name}** relative to {components[reference_component][0]}",
                         min_value=0.0,
                         max_value=100.0,
-                        value=float(st.session_state[slider_key]),
+                        value=float(st.session_state[value_key]),
                         step=1.0,
-                        key=f"slider_{comp_key}",
-                        help=f"{comp_desc}\n\n100 = As valuable as {components[reference_component][0]}\n50 = Half as valuable\n0 = Not valuable",
-                        on_change=lambda k=slider_key, sk=f"slider_{comp_key}": st.session_state.update({k: st.session_state[sk]})
+                        key=f"temp_slider_{comp_key}",
+                        help=f"{comp_desc}\n\n100 = As valuable as {components[reference_component][0]}\n50 = Half as valuable\n0 = Not valuable"
                     )
+                    # Update shared value if slider changed
+                    if slider_val != st.session_state[value_key]:
+                        st.session_state[value_key] = slider_val
                 
                 with col_input:
-                    st.markdown("<br>", unsafe_allow_html=True)  # Align with slider
-                    input_value = st.number_input(
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    input_val = st.number_input(
                         "Precise value",
                         min_value=0.0,
                         max_value=100.0,
-                        value=float(st.session_state[slider_key]),
+                        value=float(st.session_state[value_key]),
                         step=0.01,
                         format="%.2f",
-                        key=f"input_{comp_key}",
-                        label_visibility="collapsed",
-                        on_change=lambda k=slider_key, ik=f"input_{comp_key}": st.session_state.update({k: st.session_state[ik]})
+                        key=f"temp_input_{comp_key}",
+                        label_visibility="collapsed"
                     )
+                    # Update shared value if input changed
+                    if input_val != st.session_state[value_key]:
+                        st.session_state[value_key] = input_val
+                        st.rerun()  # Force immediate sync
                 
-                # Use the stored synced value
-                raw_weights[comp_key] = st.session_state[slider_key]
+                raw_weights[comp_key] = st.session_state[value_key]
     
     # Normalize weights
     total = sum(raw_weights.values())
