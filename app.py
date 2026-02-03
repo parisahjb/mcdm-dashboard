@@ -1690,7 +1690,6 @@ def show_step3_set_weights():
         for comp_key, (comp_name, comp_desc) in components.items():
             if comp_key != reference_component:
                 slider_key = f"weight_{comp_key}"
-                input_key = f"input_{comp_key}"
                 
                 # Initialize values if not present
                 if slider_key not in st.session_state:
@@ -1706,7 +1705,7 @@ def show_step3_set_weights():
                         max_value=100.0,
                         value=float(st.session_state[slider_key]),
                         step=1.0,
-                        key=slider_key,
+                        key=f"slider_{comp_key}",
                         help=f"{comp_desc}\n\n100 = As valuable as {components[reference_component][0]}\n50 = Half as valuable\n0 = Not valuable"
                     )
                 
@@ -1719,16 +1718,19 @@ def show_step3_set_weights():
                         value=float(st.session_state[slider_key]),
                         step=0.01,
                         format="%.2f",
-                        key=input_key,
+                        key=f"input_{comp_key}",
                         label_visibility="collapsed"
                     )
                 
-                # Use whichever was changed most recently
-                if input_value != st.session_state[slider_key]:
+                # Update stored value if either changed
+                if slider_value != st.session_state[slider_key]:
+                    st.session_state[slider_key] = slider_value
+                    value = slider_value
+                elif input_value != st.session_state[slider_key]:
                     st.session_state[slider_key] = input_value
                     value = input_value
                 else:
-                    value = slider_value
+                    value = st.session_state[slider_key]
                 
                 raw_weights[comp_key] = value
     
