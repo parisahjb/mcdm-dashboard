@@ -1687,50 +1687,63 @@ def show_step3_set_weights():
         
         raw_weights = {reference_component: 100.0}
         
+        # Define callback functions before the loop
+        def sync_from_slider(comp_key):
+            slider_key = f"slider_{comp_key}"
+            input_key = f"input_{comp_key}"
+            if slider_key in st.session_state:
+                st.session_state[input_key] = st.session_state[slider_key]
+        
+        def sync_from_input(comp_key):
+            slider_key = f"slider_{comp_key}"
+            input_key = f"input_{comp_key}"
+            if input_key in st.session_state:
+                st.session_state[slider_key] = st.session_state[input_key]
+        
+        raw_weights = {reference_component: 100.0}
+        
         for comp_key, (comp_name, comp_desc) in components.items():
             if comp_key != reference_component:
-                # Use a single shared key for the true value
-                value_key = f"value_{comp_key}"
+                slider_key = f"slider_{comp_key}"
+                input_key = f"input_{comp_key}"
                 
-                # Initialize if not present
-                if value_key not in st.session_state:
-                    st.session_state[value_key] = 50.0
+                # Initialize both if not present
+                if slider_key not in st.session_state:
+                    st.session_state[slider_key] = 50.0
+                if input_key not in st.session_state:
+                    st.session_state[input_key] = 50.0
                 
                 # Create two columns: slider and number input
                 col_slider, col_input = st.columns([3, 1])
                 
                 with col_slider:
-                    slider_val = st.slider(
+                    st.slider(
                         f"**{comp_name}** relative to {components[reference_component][0]}",
                         min_value=0.0,
                         max_value=100.0,
-                        value=float(st.session_state[value_key]),
                         step=1.0,
-                        key=f"temp_slider_{comp_key}",
+                        key=slider_key,
+                        on_change=sync_from_slider,
+                        args=(comp_key,),
                         help=f"{comp_desc}\n\n100 = As valuable as {components[reference_component][0]}\n50 = Half as valuable\n0 = Not valuable"
                     )
-                    # Update shared value if slider changed
-                    if slider_val != st.session_state[value_key]:
-                        st.session_state[value_key] = slider_val
                 
                 with col_input:
                     st.markdown("<br>", unsafe_allow_html=True)
-                    input_val = st.number_input(
+                    st.number_input(
                         "Precise value",
                         min_value=0.0,
                         max_value=100.0,
-                        value=float(st.session_state[value_key]),
                         step=0.01,
                         format="%.2f",
-                        key=f"temp_input_{comp_key}",
+                        key=input_key,
+                        on_change=sync_from_input,
+                        args=(comp_key,),
                         label_visibility="collapsed"
                     )
-                    # Update shared value if input changed
-                    if input_val != st.session_state[value_key]:
-                        st.session_state[value_key] = input_val
-                        st.rerun()  # Force immediate sync
                 
-                raw_weights[comp_key] = st.session_state[value_key]
+                # Use the slider value for weights
+                raw_weights[comp_key] = st.session_state[slider_key]
     
     # Normalize weights
     total = sum(raw_weights.values())
