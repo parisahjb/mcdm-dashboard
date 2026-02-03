@@ -1706,7 +1706,8 @@ def show_step3_set_weights():
                         value=float(st.session_state[slider_key]),
                         step=1.0,
                         key=f"slider_{comp_key}",
-                        help=f"{comp_desc}\n\n100 = As valuable as {components[reference_component][0]}\n50 = Half as valuable\n0 = Not valuable"
+                        help=f"{comp_desc}\n\n100 = As valuable as {components[reference_component][0]}\n50 = Half as valuable\n0 = Not valuable",
+                        on_change=lambda k=slider_key, sk=f"slider_{comp_key}": st.session_state.update({k: st.session_state[sk]})
                     )
                 
                 with col_input:
@@ -1719,20 +1720,12 @@ def show_step3_set_weights():
                         step=0.01,
                         format="%.2f",
                         key=f"input_{comp_key}",
-                        label_visibility="collapsed"
+                        label_visibility="collapsed",
+                        on_change=lambda k=slider_key, ik=f"input_{comp_key}": st.session_state.update({k: st.session_state[ik]})
                     )
                 
-                # Update stored value if either changed
-                if slider_value != st.session_state[slider_key]:
-                    st.session_state[slider_key] = slider_value
-                    value = slider_value
-                elif input_value != st.session_state[slider_key]:
-                    st.session_state[slider_key] = input_value
-                    value = input_value
-                else:
-                    value = st.session_state[slider_key]
-                
-                raw_weights[comp_key] = value
+                # Use the stored synced value
+                raw_weights[comp_key] = st.session_state[slider_key]
     
     # Normalize weights
     total = sum(raw_weights.values())
