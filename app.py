@@ -1690,20 +1690,46 @@ def show_step3_set_weights():
         for comp_key, (comp_name, comp_desc) in components.items():
             if comp_key != reference_component:
                 slider_key = f"weight_{comp_key}"
+                input_key = f"input_{comp_key}"
                 
-                # Initialize slider values if not present
+                # Initialize values if not present
                 if slider_key not in st.session_state:
-                    st.session_state[slider_key] = 50  # Default to 50% of reference
+                    st.session_state[slider_key] = 50.0  # Default to 50% of reference
                 
-                value = st.slider(
-                    f"**{comp_name}** relative to {components[reference_component][0]}",
-                    min_value=0,
-                    max_value=100,
-                    value=st.session_state[slider_key],
-                    step=5,
-                    key=slider_key,
-                    help=f"{comp_desc}\n\n100 = As valuable as {components[reference_component][0]}\n50 = Half as valuable\n0 = Not valuable"
-                )
+                # Create two columns: slider and number input
+                col_slider, col_input = st.columns([3, 1])
+                
+                with col_slider:
+                    slider_value = st.slider(
+                        f"**{comp_name}** relative to {components[reference_component][0]}",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=float(st.session_state[slider_key]),
+                        step=1.0,
+                        key=slider_key,
+                        help=f"{comp_desc}\n\n100 = As valuable as {components[reference_component][0]}\n50 = Half as valuable\n0 = Not valuable"
+                    )
+                
+                with col_input:
+                    st.markdown("<br>", unsafe_allow_html=True)  # Align with slider
+                    input_value = st.number_input(
+                        "Precise value",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=float(st.session_state[slider_key]),
+                        step=0.01,
+                        format="%.2f",
+                        key=input_key,
+                        label_visibility="collapsed"
+                    )
+                
+                # Use whichever was changed most recently
+                if input_value != st.session_state[slider_key]:
+                    st.session_state[slider_key] = input_value
+                    value = input_value
+                else:
+                    value = slider_value
+                
                 raw_weights[comp_key] = value
     
     # Normalize weights
