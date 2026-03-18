@@ -1651,6 +1651,111 @@ def show_step2_upload_extract():
 
 
 # ================================================================
+# HELPER FUNCTION: GET BEST/WORST VALUES FOR PROPERTIES
+# ================================================================
+
+def get_property_ranges(data):
+    """Calculate best and worst values for each property"""
+    ranges = {}
+    
+    # w1: Completeness - higher is better
+    c_values = data['c_values']
+    ranges['w1'] = {
+        'best': max(c_values),
+        'worst': min(c_values),
+        'higher_is_better': True
+    }
+    
+    # w2: Objectivity - proportion, higher is better
+    u_values = data['u_values']
+    ranges['w2'] = {
+        'best': sum(u_values) / len(u_values),
+        'worst': 0.0,
+        'higher_is_better': True
+    }
+    
+    # w3: Measurability - higher is better
+    m_values = data['m_values']
+    ranges['w3'] = {
+        'best': max(m_values),
+        'worst': min(m_values),
+        'higher_is_better': True
+    }
+    
+    # w4: Distinctiveness - lower correlation is better (more distinct)
+    r_mat = np.array(data['r_mat'])
+    # Get upper triangle values (excluding diagonal)
+    upper_triangle = r_mat[np.triu_indices_from(r_mat, k=1)]
+    ranges['w4'] = {
+        'best': min(upper_triangle) if len(upper_triangle) > 0 else 0.0,
+        'worst': max(upper_triangle) if len(upper_triangle) > 0 else 1.0,
+        'higher_is_better': False
+    }
+    
+    # w5_minus: Parsimony Lower - deviation from minimum
+    ranges['w5_minus'] = {
+        'best': 0,
+        'worst': data['omega'],
+        'higher_is_better': False
+    }
+    
+    # w6: Sensitivity - higher is better
+    s_values = data['s_values']
+    ranges['w6'] = {
+        'best': max(s_values),
+        'worst': min(s_values),
+        'higher_is_better': True
+    }
+    
+    # w7: Cost-Effectiveness - higher is better
+    ce_values = data['ce_values']
+    ranges['w7'] = {
+        'best': max(ce_values),
+        'worst': min(ce_values),
+        'higher_is_better': True
+    }
+    
+    # w8: Alignment - higher is better
+    a_values = data['a_values']
+    ranges['w8'] = {
+        'best': max(a_values),
+        'worst': min(a_values),
+        'higher_is_better': True
+    }
+    
+    # w9: Cognitive Coherence - higher is better
+    cc_values = data['cc_values']
+    ranges['w9'] = {
+        'best': max(cc_values),
+        'worst': min(cc_values),
+        'higher_is_better': True
+    }
+    
+    # w5_plus: Parsimony Upper - deviation from maximum
+    ranges['w5_plus'] = {
+        'best': 0,
+        'worst': len(data['I']) - data['zeta'],
+        'higher_is_better': False
+    }
+    
+    # w11_minus: Representativeness Min - deviation from minimum
+    ranges['w11_minus'] = {
+        'best': 0,
+        'worst': data['L_o'],
+        'higher_is_better': False
+    }
+    
+    # w11_plus: Representativeness Max - deviation from maximum
+    ranges['w11_plus'] = {
+        'best': 0,
+        'worst': max([max(1, data['Io_dict'][o] - data['U_o']) for o in data['O']]) if data['O'] else 1,
+        'higher_is_better': False
+    }
+    
+    return ranges
+
+
+# ================================================================
 # STEP 3: SET WEIGHTS
 # ================================================================
 
@@ -1661,13 +1766,20 @@ def show_step3_set_weights():
         st.warning("⚠️ Please upload and extract data first!")
         return
     
+    # Get property ranges (best/worst values)
+    property_ranges = get_property_ranges(st.session_state.data)
+    
     st.markdown("""
     <div class="info-box">
         <strong>💡 Classical Swing Weighting Method:</strong><br>
         1. Select the component with the most valuable swing from worst to best performance<br>
         2. That component is assigned a reference value of 1.0<br>
         3. Rate all other components relative to the reference (0.0 = no value, 1.0 = equally valuable)<br>
-        4. Weights are automatically normalized to sum to 1.0
+        4. Weights are automatically normalized to sum to 1.0<br><br>
+        <strong>📊 Best/Worst Values Guide:</strong><br>
+        • <span style="color: #10b981;">↑ Best</span> = Higher values are better (benefits)<br>
+        • <span style="color: #10b981;">↓ Best</span> = Lower values are better (costs/penalties)<br>
+        • Values shown reflect the actual range in your uploaded data
     </div>
     """, unsafe_allow_html=True)
     
@@ -1703,10 +1815,23 @@ def show_step3_set_weights():
         
         st.session_state.reference_component = reference_component
         
+        # Get range for reference component
+        ref_range = property_ranges.get(reference_component, {'best': 0, 'worst': 0, 'higher_is_better': True})
+        ref_best = ref_range['best']
+        ref_worst = ref_range['worst']
+        ref_higher_is_better = ref_range['higher_is_better']
+        
+        # Display reference component with its range
+        if ref_higher_is_better:
+            range_display = f"Best: {ref_best:.3f} ↑ | Worst: {ref_worst:.3f} ↓"
+        else:
+            range_display = f"Best: {ref_best:.3f} ↓ | Worst: {ref_worst:.3f} ↑"
+        
         st.markdown(f"""
         <div class="reference-box">
             <strong>🎯 Reference: {components[reference_component][0]}</strong><br>
-            This component is set to 100 (maximum value)
+            This component is set to 100 (maximum value)<br>
+            <span style="font-size: 0.875rem; color: #92400e;">{range_display}</span>
         </div>
         """, unsafe_allow_html=True)
         
@@ -1745,8 +1870,36 @@ def show_step3_set_weights():
                 if input_key not in st.session_state:
                     st.session_state[input_key] = 50.0
                 
-                # Create two columns: slider and number input
-                col_slider, col_input = st.columns([3, 1])
+                # Get best/worst values for this property
+                prop_range = property_ranges.get(comp_key, {'best': 0, 'worst': 0, 'higher_is_better': True})
+                best_val = prop_range['best']
+                worst_val = prop_range['worst']
+                higher_is_better = prop_range['higher_is_better']
+                
+                # Create columns: range display, slider, and number input
+                col_range, col_slider, col_input = st.columns([1, 3, 1])
+                
+                # Display best/worst values
+                with col_range:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if higher_is_better:
+                        st.markdown(f"""
+                        <div style="font-size: 0.75rem; padding: 0.25rem; background: #f0fdf4; border-radius: 4px; margin-bottom: 0.25rem;">
+                            <span style="color: #10b981; font-weight: 600;">↑ Best:</span> {best_val:.3f}
+                        </div>
+                        <div style="font-size: 0.75rem; padding: 0.25rem; background: #fef2f2; border-radius: 4px;">
+                            <span style="color: #ef4444; font-weight: 600;">↓ Worst:</span> {worst_val:.3f}
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style="font-size: 0.75rem; padding: 0.25rem; background: #f0fdf4; border-radius: 4px; margin-bottom: 0.25rem;">
+                            <span style="color: #10b981; font-weight: 600;">↓ Best:</span> {best_val:.3f}
+                        </div>
+                        <div style="font-size: 0.75rem; padding: 0.25rem; background: #fef2f2; border-radius: 4px;">
+                            <span style="color: #ef4444; font-weight: 600;">↑ Worst:</span> {worst_val:.3f}
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 with col_slider:
                     st.slider(
