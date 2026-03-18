@@ -1693,6 +1693,8 @@ def get_property_ranges(data):
     }
     
     # w5_minus: Parsimony Lower - deviation from minimum
+    # Worst case: 0 criteria selected → deviation = ω
+    # Best case: selected ≥ ω → deviation = 0
     ranges['w5_minus'] = {
         'best': 0,
         'worst': data['omega'],
@@ -1732,6 +1734,8 @@ def get_property_ranges(data):
     }
     
     # w5_plus: Parsimony Upper - deviation from maximum
+    # Worst case: all criteria selected → deviation = |I| - ζ
+    # Best case: selected ≤ ζ → deviation = 0
     ranges['w5_plus'] = {
         'best': 0,
         'worst': len(data['I']) - data['zeta'],
@@ -1739,6 +1743,8 @@ def get_property_ranges(data):
     }
     
     # w11_minus: Representativeness Min - deviation from minimum
+    # Worst case: 0 criteria for an objective → deviation = L_o
+    # Best case: n_o ≥ L_o → deviation = 0
     ranges['w11_minus'] = {
         'best': 0,
         'worst': data['L_o'],
@@ -1746,9 +1752,12 @@ def get_property_ranges(data):
     }
     
     # w11_plus: Representativeness Max - deviation from maximum
+    # Worst case: objective with most criteria has all selected → deviation = max(I_o) - U_o
+    # Best case: n_o ≤ U_o for all objectives → deviation = 0
+    max_Io = max(data['Io']) if data['Io'] else data['U_o']
     ranges['w11_plus'] = {
         'best': 0,
-        'worst': max([max(1, data['Io_dict'][o] - data['U_o']) for o in data['O']]) if data['O'] else 1,
+        'worst': max(1, max_Io - data['U_o']),
         'higher_is_better': False
     }
     
@@ -1801,8 +1810,8 @@ def show_step3_set_weights():
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        # Step 1: Select reference component
-        st.subheader("Step 1: Select Reference Component")
+        # Step 3.1: Select reference component
+        st.subheader("3.1. Select Reference Component")
         st.markdown("**Which component has the MOST valuable swing from worst to best performance?**")
         
         reference_component = st.selectbox(
@@ -1837,8 +1846,8 @@ def show_step3_set_weights():
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Step 2: Rate other components relative to reference
-        st.subheader("Step 2: Rate Other Components Relative to Reference")
+        # Step 3.2: Rate other components relative to reference
+        st.subheader("3.2. Rate Other Components Relative to Reference")
         st.markdown(f"**For each component below, rate how valuable its swing is compared to *{components[reference_component][0]}***")
         st.markdown("*Scale: 0 = no value, 50 = half as valuable, 100 = equally valuable*")
         
