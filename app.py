@@ -1667,9 +1667,10 @@ def get_property_ranges(data):
     }
     
     # w2: Objectivity - proportion, higher is better
-    u_values = data['u_values']
+    # Best case: all criteria are objective (proportion = 1)
+    # Worst case: all criteria are subjective (proportion = 0)
     ranges['w2'] = {
-        'best': sum(u_values) / len(u_values),
+        'best': 1.0,
         'worst': 0.0,
         'higher_is_better': True
     }
@@ -1752,12 +1753,16 @@ def get_property_ranges(data):
     }
     
     # w11_plus: Representativeness Max - deviation from maximum
-    # Worst case: objective with most criteria has all selected → deviation = max(I_o) - U_o
+    # Worst case: objective with most criteria has all selected → max(I_o - U_o) across objectives
     # Best case: n_o ≤ U_o for all objectives → deviation = 0
-    max_Io = max(data['Io']) if data['Io'] else data['U_o']
+    # Calculate max(I_o - U_o) for each objective
+    if data['Io'] and data['U_o']:
+        max_deviation = max([max(0, Io_val - data['U_o']) for Io_val in data['Io']])
+    else:
+        max_deviation = 1
     ranges['w11_plus'] = {
         'best': 0,
-        'worst': max(1, max_Io - data['U_o']),
+        'worst': max(1, max_deviation),
         'higher_is_better': False
     }
     
