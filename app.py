@@ -18,7 +18,7 @@ import io
 # ================================================================
 st.set_page_config(
     page_title="Stage 2: Criteria Selection Tool of CREST",
-    page_icon="",
+    page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -105,9 +105,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================================================================
-# SESSION STATE INITIALIZATION
-# ================================================================
 # ================================================================
 # SESSION STATE INITIALIZATION
 # ================================================================
@@ -291,7 +288,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     
     row += 2
     
-    ws_config[f'A{row}'] = "PARSIMONY BOUNDS"
+    ws_config[f'A{row}'] = "PARSIMONY AND REPRESENTATIVENESS BOUNDS (Properties 5 & 11)"
     ws_config[f'A{row}'].font = Font(bold=True, size=12)
     ws_config[f'A{row}'].fill = section_fill
     ws_config.merge_cells(f'A{row}:D{row}')
@@ -318,15 +315,15 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     row += 1
     
     threshold_data = [
-        ["Step 1: Completeness (α)", alpha],
-        ["Step 3: Measurability Objective (γ_O)", gamma_O],
-        ["Step 3: Measurability Subjective (γ_S)", gamma_S],
-        ["Step 4: Distinctiveness (δ)", delta],
-        ["Step 6: Sensitivity (θ)", theta],
-        ["Step 7: Cost-effectiveness Objective (τ_O)", tau_O],
-        ["Step 7: Cost-effectiveness Subjective (τ_S)", tau_S],
-        ["Step 8: Alignment (λ)", lambda_th],
-        ["Step 9: Cognitive Coherence (μ)", mu],
+        ["Property I: Completeness (α)", alpha],
+        ["Property III: Measurability Objective (γ_O)", gamma_O],
+        ["Property III: Measurability Subjective (γ_S)", gamma_S],
+        ["Property IV: Distinctiveness (δ)", delta],
+        ["Property VI: Sensitivity (θ)", theta],
+        ["Property VII: Cost-effectiveness Objective (τ_O)", tau_O],
+        ["Property VII: Cost-effectiveness Subjective (τ_S)", tau_S],
+        ["Property VIII: Alignment (λ)", lambda_th],
+        ["Property IX: Cognitive Coherence (μ)", mu],
     ]
     
     for label, value in threshold_data:
@@ -334,18 +331,21 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         ws_config[f'B{row}'] = value
         row += 1
     
-    ws_config.column_dimensions['A'].width = 40
+    ws_config.column_dimensions['A'].width = 50
     ws_config.column_dimensions['B'].width = 20
     ws_config.column_dimensions['C'].width = 20
     ws_config.column_dimensions['D'].width = 30
     
-    # SHEET 1: COMPLETENESS
+    # SHEET 1: COMPLETENESS (Property I)
     ws1 = wb.create_sheet("1_Completeness")
-    ws1['A1'] = "Step 1: Completeness Evaluation"
+    ws1['A1'] = "Property I: Completeness Evaluation"
     ws1['A1'].font = Font(bold=True, size=12)
-    ws1['A2'] = f"Rate how well each criterion covers the decision aspect (1-10 scale). Threshold: α = {alpha}"
+    ws1['A2'] = f"Threshold: α = {alpha}"
+    ws1['A3'] = "Considering the decision context and the current criteria set, if criterion i were excluded, how much important decision-relevant content would be missed (including whether other criteria in the set serve as sufficient proxies for what i captures)?"
+    ws1.merge_cells('A3:H3')
+    ws1['A3'].alignment = Alignment(wrap_text=True, vertical='top')
     
-    row = 4
+    row = 5
     headers = ["Criterion ID", "Criterion Name"]
     for e in range(num_experts):
         headers.append(f"Expert {e+1}")
@@ -359,7 +359,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         cell.border = thin_border
     
     for i in range(num_criteria):
-        row_num = 5 + i
+        row_num = 6 + i
         ws1.cell(row=row_num, column=1, value=f"C{i+1}")
         name_cell = ws1.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
@@ -389,12 +389,15 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws1.column_dimensions['B'].width = 30
     for e in range(num_experts + 2):
         ws1.column_dimensions[get_column_letter(3+e)].width = 12
+    ws1.row_dimensions[3].height = 60
     
-    # SHEET 2: OBJECTIVITY
+    # SHEET 2: OBJECTIVITY (Property II)
     ws2 = wb.create_sheet("2_Objectivity")
-    ws2['A1'] = "Step 2: Objectivity/Subjectivity Classification"
+    ws2['A1'] = "Property II: Objectivity/Subjectivity Classification"
     ws2['A1'].font = Font(bold=True, size=12)
-    ws2['A2'] = "Classify each criterion: 1 = Objective, 0 = Subjective (Majority vote determines final classification)"
+    ws2['A2'] = "Is criterion i primarily data-verifiable/observable with minimal judgment (objective; 1) versus primarily dependent on subjective interpretation or preference (subjective; 0)?"
+    ws2.merge_cells('A2:H2')
+    ws2['A2'].alignment = Alignment(wrap_text=True, vertical='top')
     
     row = 4
     headers = ["Criterion ID", "Criterion Name"]
@@ -445,14 +448,18 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws2.column_dimensions['B'].width = 30
     for e in range(num_experts + 3):
         ws2.column_dimensions[get_column_letter(3+e)].width = 12
+    ws2.row_dimensions[2].height = 45
     
-    # SHEET 3: MEASURABILITY
+    # SHEET 3: MEASURABILITY (Property III)
     ws3 = wb.create_sheet("3_Measurability")
-    ws3['A1'] = "Step 3: Measurability Assessment"
+    ws3['A1'] = "Property III: Measurability Assessment"
     ws3['A1'].font = Font(bold=True, size=12)
-    ws3['A2'] = f"Rate how easily each criterion can be quantified (1-10 scale). Thresholds: γ_O = {gamma_O}, γ_S = {gamma_S}"
+    ws3['A2'] = f"Thresholds: γ_O = {gamma_O}, γ_S = {gamma_S}"
+    ws3['A3'] = "Given available data, effort, and expected reproducibility, how feasible is it to measure or score criterion i consistently across alternatives (data availability, definitional clarity, measurement burden, and consistency across assessors)?"
+    ws3.merge_cells('A3:H3')
+    ws3['A3'].alignment = Alignment(wrap_text=True, vertical='top')
     
-    row = 4
+    row = 5
     headers = ["Criterion ID", "Criterion Name"]
     for e in range(num_experts):
         headers.append(f"Expert {e+1}")
@@ -466,7 +473,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         cell.border = thin_border
     
     for i in range(num_criteria):
-        row_num = 5 + i
+        row_num = 6 + i
         ws3.cell(row=row_num, column=1, value=f"C{i+1}")
         name_cell = ws3.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
@@ -509,15 +516,18 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws3.column_dimensions['B'].width = 30
     for e in range(num_experts + 4):
         ws3.column_dimensions[get_column_letter(3+e)].width = 12
+    ws3.row_dimensions[3].height = 60
     
-    # SHEET 4: DISTINCTIVENESS
+    # SHEET 4: DISTINCTIVENESS (Property IV)
     ws4 = wb.create_sheet("4_Distinctiveness")
-    ws4['A1'] = "Step 4: Distinctiveness - Decision Matrices"
+    ws4['A1'] = "Property IV: Distinctiveness - Decision Matrices"
     ws4['A1'].font = Font(bold=True, size=12)
-    ws4['A2'] = f"Provide decision matrices for each expert. Correlation threshold: δ = {delta}"
-    ws4['A3'] = "Note: Correlation analysis will be performed externally in Python"
+    ws4['A2'] = f"Correlation threshold: δ = {delta}"
+    ws4['A3'] = "Experts provide decision matrices (alternative-by-criterion scores); the DSS computes expert-wise absolute correlations and aggregates them via the median to obtain pooled absolute correlations used for redundancy control."
+    ws4.merge_cells('A3:H3')
+    ws4['A3'].alignment = Alignment(wrap_text=True, vertical='top')
     
-    row = 5
+    row = 6
     for e in range(num_experts):
         ws4.cell(row=row, column=1, value=f"Expert {e+1} Decision Matrix").font = Font(bold=True)
         row += 1
@@ -550,15 +560,18 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws4.column_dimensions['A'].width = 35
     for c in range(num_criteria):
         ws4.column_dimensions[get_column_letter(2+c)].width = 10
+    ws4.row_dimensions[3].height = 60
     
-    # SHEET 6: SENSITIVITY
+    # SHEET 6: SENSITIVITY (Property VI)
     ws6 = wb.create_sheet("6_Sensitivity")
-    ws6['A1'] = "Step 6: Sensitivity Analysis - Decision Matrices"
+    ws6['A1'] = "Property VI: Sensitivity Analysis - Decision Matrices"
     ws6['A1'].font = Font(bold=True, size=12)
-    ws6['A2'] = f"Provide decision matrices for each expert. Elasticity threshold: θ = {theta}"
-    ws6['A3'] = "Note: Sensitivity analysis will be performed externally in Python"
+    ws6['A2'] = f"Elasticity threshold: θ = {theta}"
+    ws6['A3'] = "Using the expert decision matrices, the DSS runs the Monte Carlo procedure (Dirichlet-sampled weights over R runs) to estimate elasticities and the average sensitivity, which is then compared against the sensitivity threshold θ."
+    ws6.merge_cells('A3:H3')
+    ws6['A3'].alignment = Alignment(wrap_text=True, vertical='top')
     
-    row = 5
+    row = 6
     for e in range(num_experts):
         ws6.cell(row=row, column=1, value=f"Expert {e+1} Decision Matrix").font = Font(bold=True)
         row += 1
@@ -591,14 +604,18 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws6.column_dimensions['A'].width = 35
     for c in range(num_criteria):
         ws6.column_dimensions[get_column_letter(2+c)].width = 10
+    ws6.row_dimensions[3].height = 60
     
-    # SHEET 7: COST-EFFECTIVENESS
+    # SHEET 7: COST-EFFECTIVENESS (Property VII)
     ws7 = wb.create_sheet("7_Cost_Effectiveness")
-    ws7['A1'] = "Step 7: Cost-Effectiveness Evaluation"
+    ws7['A1'] = "Property VII: Cost-Effectiveness Evaluation"
     ws7['A1'].font = Font(bold=True, size=12)
-    ws7['A2'] = f"Rate cost-effectiveness (0-10 Likert scale). Thresholds: τ_O = {tau_O}, τ_S = {tau_S}"
+    ws7['A2'] = f"Thresholds: τ_O = {tau_O}, τ_S = {tau_S}"
+    ws7['A3'] = "Relative to the cost of assessing i (time, money, data-collection effort, and cognitive/operational burden), how worthwhile is its informational value for distinguishing alternatives and supporting the decision?"
+    ws7.merge_cells('A3:H3')
+    ws7['A3'].alignment = Alignment(wrap_text=True, vertical='top')
     
-    row = 4
+    row = 5
     headers = ["Criterion ID", "Criterion Name"]
     for e in range(num_experts):
         headers.append(f"Expert {e+1}")
@@ -612,7 +629,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         cell.border = thin_border
     
     for i in range(num_criteria):
-        row_num = 5 + i
+        row_num = 6 + i
         ws7.cell(row=row_num, column=1, value=f"C{i+1}")
         name_cell = ws7.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
@@ -661,14 +678,18 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws7.column_dimensions['B'].width = 30
     for e in range(num_experts + 5):
         ws7.column_dimensions[get_column_letter(3+e)].width = 12
+    ws7.row_dimensions[3].height = 60
     
-    # SHEET 8: ALIGNMENT
+    # SHEET 8: ALIGNMENT (Property VIII)
     ws8 = wb.create_sheet("8_Alignment")
-    ws8['A1'] = "Step 8: Alignment Assessment"
+    ws8['A1'] = "Property VIII: Alignment Assessment"
     ws8['A1'].font = Font(bold=True, size=12)
-    ws8['A2'] = f"Rate criterion-objective alignment (1-10 scale). Threshold: λ = {lambda_th}"
+    ws8['A2'] = f"Threshold: λ = {lambda_th}"
+    ws8['A3'] = "How strongly does criterion i advance the stated organizational/stakeholder objectives for this decision (strategic fit and relevance to the problem-structuring stage objectives)?"
+    ws8.merge_cells('A3:H3')
+    ws8['A3'].alignment = Alignment(wrap_text=True, vertical='top')
     
-    row = 4
+    row = 5
     headers = ["Criterion ID", "Criterion Name"]
     for e in range(num_experts):
         headers.append(f"Expert {e+1}")
@@ -682,7 +703,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         cell.border = thin_border
     
     for i in range(num_criteria):
-        row_num = 5 + i
+        row_num = 6 + i
         ws8.cell(row=row_num, column=1, value=f"C{i+1}")
         name_cell = ws8.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
@@ -712,14 +733,18 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws8.column_dimensions['B'].width = 30
     for e in range(num_experts + 2):
         ws8.column_dimensions[get_column_letter(3+e)].width = 12
+    ws8.row_dimensions[3].height = 45
     
-    # SHEET 9: COGNITIVE COHERENCE
+    # SHEET 9: COGNITIVE COHERENCE (Property IX)
     ws9 = wb.create_sheet("9_Cognitive_Coherence")
-    ws9['A1'] = "Step 9: Cognitive Coherence"
+    ws9['A1'] = "Property IX: Cognitive Coherence"
     ws9['A1'].font = Font(bold=True, size=12)
-    ws9['A2'] = f"Cross-expert ratings of definitions (no self-ratings). Threshold: μ = {mu}"
+    ws9['A2'] = f"Threshold: μ = {mu}"
+    ws9['A3'] = "After reading anonymized peer explanations/definitions of criterion i, how clear, unambiguous, and consistently interpretable is i (shared understanding of meaning, scope, and how it should be applied)?"
+    ws9.merge_cells('A3:H3')
+    ws9['A3'].alignment = Alignment(wrap_text=True, vertical='top')
     
-    row = 4
+    row = 5
     headers = ["Criterion ID", "Criterion Name"]
     for rater in range(num_experts):
         for author in range(num_experts):
@@ -736,7 +761,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     
     num_cross_ratings = num_experts * (num_experts - 1)
     for i in range(num_criteria):
-        row_num = 5 + i
+        row_num = 6 + i
         ws9.cell(row=row_num, column=1, value=f"C{i+1}")
         name_cell = ws9.cell(row=row_num, column=2)
         name_cell.value = f'=0_Configuration!$B${CRITERIA_START_ROW + i}'
@@ -766,12 +791,15 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws9.column_dimensions['B'].width = 30
     for j in range(num_cross_ratings + 2):
         ws9.column_dimensions[get_column_letter(3+j)].width = 10
+    ws9.row_dimensions[3].height = 60
     
-    # SHEET 10: MONOTONE COHERENCE
+    # SHEET 10: MONOTONE COHERENCE (Property X)
     ws10 = wb.create_sheet("10_Monotone_Coherence")
-    ws10['A1'] = "Step 10: Monotone Coherence"
+    ws10['A1'] = "Property X: Monotone Coherence"
     ws10['A1'].font = Font(bold=True, size=12)
-    ws10['A2'] = "Binary votes on monotonicity (1 = monotone, 0 = not monotone)"
+    ws10['A2'] = "Holding all other criteria fixed, does improving criterion i (increasing for benefits, decreasing for costs) make every alternative better or keep them equally good? (1=yes, 0=no)."
+    ws10.merge_cells('A2:H2')
+    ws10['A2'].alignment = Alignment(wrap_text=True, vertical='top')
     
     row = 4
     headers = ["Criterion ID", "Criterion Name"]
@@ -816,12 +844,15 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws10.column_dimensions['B'].width = 30
     for e in range(num_experts + 2):
         ws10.column_dimensions[get_column_letter(3+e)].width = 12
+    ws10.row_dimensions[2].height = 45
     
-    # SHEET 11: REPRESENTATIVENESS
+    # SHEET 11: REPRESENTATIVENESS (Property XI)
     ws11 = wb.create_sheet("11_Representativeness")
-    ws11['A1'] = "Step 11: Representativeness"
+    ws11['A1'] = "Property XI: Representativeness"
     ws11['A1'].font = Font(bold=True, size=12)
-    ws11['A2'] = "Assign criteria to objectives (1 = assigned, 0 = not; max one per criterion per expert)"
+    ws11['A2'] = "Objective assignment: for each criterion i and each finalized objective o, indicate whether i represents o (1/0), with the intent that each expert assigns i to the single objective it most strongly supports (if any)."
+    ws11.merge_cells('A2:H2')
+    ws11['A2'].alignment = Alignment(wrap_text=True, vertical='top')
     
     expert_data_rows = []
     row = 5
@@ -906,6 +937,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws11.column_dimensions['A'].width = 35
     for o in range(num_objectives + 1):
         ws11.column_dimensions[get_column_letter(2+o)].width = 10
+    ws11.row_dimensions[2].height = 60
     
     buffer = io.BytesIO()
     wb.save(buffer)
@@ -1002,7 +1034,7 @@ def read_mcdm_template(file):
     results['lambda'] = float(df_config.iloc[thresholds_start_row + 7, 1])
     results['mu'] = float(df_config.iloc[thresholds_start_row + 8, 1])
     
-    df_comp = pd.read_excel(file, sheet_name='1_Completeness', skiprows=3, header=0)
+    df_comp = pd.read_excel(file, sheet_name='1_Completeness', skiprows=4, header=0)
     median_col_name = df_comp.columns[2 + num_experts]
     c_values = df_comp[median_col_name].head(num_criteria).tolist()
     results['c_values'] = c_values
@@ -1012,7 +1044,7 @@ def read_mcdm_template(file):
     u_values = df_obj[binary_col_name].head(num_criteria).astype(int).tolist()
     results['u_values'] = u_values
     
-    df_meas = pd.read_excel(file, sheet_name='3_Measurability', skiprows=3, header=0)
+    df_meas = pd.read_excel(file, sheet_name='3_Measurability', skiprows=4, header=0)
     median_col_name = df_meas.columns[2 + num_experts]
     m_values = df_meas[median_col_name].head(num_criteria).tolist()
     results['m_values'] = m_values
@@ -1020,7 +1052,7 @@ def read_mcdm_template(file):
     df_dist = pd.read_excel(file, sheet_name='4_Distinctiveness', header=None)
     
     decision_matrices = []
-    current_row = 4
+    current_row = 5
     
     for e in range(num_experts):
         data_start = current_row + 2
@@ -1048,7 +1080,7 @@ def read_mcdm_template(file):
     df_sens = pd.read_excel(file, sheet_name='6_Sensitivity', header=None)
     
     decision_matrices_sens = []
-    current_row = 4
+    current_row = 5
     
     for e in range(num_experts):
         data_start = current_row + 2
@@ -1102,17 +1134,17 @@ def read_mcdm_template(file):
     s_values = np.mean(sensitivity_results, axis=0).tolist()
     results['s_values'] = s_values
     
-    df_cost = pd.read_excel(file, sheet_name='7_Cost_Effectiveness', skiprows=3, header=0)
+    df_cost = pd.read_excel(file, sheet_name='7_Cost_Effectiveness', skiprows=4, header=0)
     median_col_name = df_cost.columns[2 + num_experts]
     ce_values = df_cost[median_col_name].head(num_criteria).tolist()
     results['ce_values'] = ce_values
     
-    df_align = pd.read_excel(file, sheet_name='8_Alignment', skiprows=3, header=0)
+    df_align = pd.read_excel(file, sheet_name='8_Alignment', skiprows=4, header=0)
     median_col_name = df_align.columns[2 + num_experts]
     a_values = df_align[median_col_name].head(num_criteria).tolist()
     results['a_values'] = a_values
     
-    df_cog = pd.read_excel(file, sheet_name='9_Cognitive_Coherence', skiprows=3, header=0)
+    df_cog = pd.read_excel(file, sheet_name='9_Cognitive_Coherence', skiprows=4, header=0)
     num_cross_ratings = num_experts * (num_experts - 1)
     median_col_name = df_cog.columns[2 + num_cross_ratings]
     cc_values = df_cog[median_col_name].head(num_criteria).tolist()
@@ -1505,17 +1537,17 @@ def show_step1_generate_template():
         num_objectives = st.number_input("Number of Objectives", min_value=1, value=7, step=1, key="num_obj")
     
     with col2:
-            st.subheader("Parsimony Bounds")
-            omega = st.number_input("Target Minimum (ω)", min_value=1, value=5, step=1, key="omega")
-            zeta = st.number_input("Target Maximum (ζ)", min_value=1, value=9, step=1, key="zeta")
-            st.info("💡 Set bounds for the number of criteria to select")
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.subheader("Objective Representation Bounds")
-            L_o = st.number_input("Min representation per objective L(o)", min_value=1, value=1, step=1, key="L_o")
-            U_o = st.number_input("Max representation per objective U(o)", min_value=1, value=2, step=1, key="U_o")
-            st.info("💡 Set bounds for criteria per objective")
+        st.subheader("Parsimony Bounds")
+        omega = st.number_input("Target Minimum (ω)", min_value=1, value=5, step=1, key="omega")
+        zeta = st.number_input("Target Maximum (ζ)", min_value=1, value=9, step=1, key="zeta")
+        st.info("💡 Set bounds for the number of criteria to select")
         
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("Objective Representation Bounds")
+        L_o = st.number_input("Min representation per objective L(o)", min_value=1, value=1, step=1, key="L_o")
+        U_o = st.number_input("Max representation per objective U(o)", min_value=1, value=2, step=1, key="U_o")
+        st.info("💡 Set bounds for criteria per objective")
+    
     with st.expander("⚙️ Other Thresholds"):
         col1, col2 = st.columns(2)
         with col1:
@@ -1607,7 +1639,7 @@ def show_step2_upload_extract():
                             })
                             st.dataframe(criteria_df, use_container_width=True, hide_index=True)
                         
-                        with st.expander(" View Objectives"):
+                        with st.expander("🎯 View Objectives"):
                             for i, name in enumerate(data['objectives_names'], 1):
                                 criteria_in_obj = data['obj_map'].get(i, [])
                                 st.write(f"**O{i}: {name}** → Criteria: {criteria_in_obj}")
@@ -1822,7 +1854,7 @@ def show_step4_run_optimization():
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button(" Run Optimization", type="primary", use_container_width=True):
+        if st.button("🚀 Run Optimization", type="primary", use_container_width=True):
             with st.spinner("Building and solving optimization model..."):
                 try:
                     model = build_mcdm_model(st.session_state.data, st.session_state.weights)
@@ -1899,7 +1931,7 @@ def show_step4_run_optimization():
 # ================================================================
 
 def main():
-    st.markdown('<h1 class="main-title"> Criteria Selection Tool of CREST</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title">🎯 Criteria Selection Tool of CREST</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">11-Step Multi-Criteria Decision Analysis with Optimization</p>', unsafe_allow_html=True)
     
     show_progress_indicator(st.session_state.current_step)
