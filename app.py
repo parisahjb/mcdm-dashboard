@@ -18,7 +18,7 @@ import io
 # ================================================================
 st.set_page_config(
     page_title="Stage 2: Criteria Selection Tool of CREST",
-    page_icon=" ",
+    page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -1639,7 +1639,7 @@ def show_step2_upload_extract():
                             })
                             st.dataframe(criteria_df, use_container_width=True, hide_index=True)
                         
-                        with st.expander(" View Objectives"):
+                        with st.expander("🎯 View Objectives"):
                             for i, name in enumerate(data['objectives_names'], 1):
                                 criteria_in_obj = data['obj_map'].get(i, [])
                                 st.write(f"**O{i}: {name}** → Criteria: {criteria_in_obj}")
@@ -1843,7 +1843,7 @@ def show_step3_set_weights():
         
         st.markdown(f"""
         <div class="reference-box">
-            <strong> Reference: {components[reference_component][0]}</strong><br>
+            <strong>🎯 Reference: {components[reference_component][0]}</strong><br>
             This component is set to 100 (maximum value)<br>
             <span style="font-size: 0.875rem; color: #92400e;">{range_display}</span>
         </div>
@@ -1954,7 +1954,7 @@ def show_step3_set_weights():
         
         st.markdown(f"""
         <div style="background: #fef3c7; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; border: 2px solid #f59e0b;">
-            <div style="font-weight: 600; color: #92400e;"> Reference Component:</div>
+            <div style="font-weight: 600; color: #92400e;">🎯 Reference Component:</div>
             <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">{components[reference_component][0]}</div>
             <div style="font-size: 0.875rem; color: #92400e;">Raw: 100 → Normalized: {normalized[reference_component]:.4f}</div>
         </div>
@@ -2056,6 +2056,22 @@ def show_step4_run_optimization():
                         })
                         st.dataframe(selected_df, use_container_width=True, hide_index=True)
                         
+                        # CSV Download Button
+                        csv_buffer = io.StringIO()
+                        selected_df.to_csv(csv_buffer, index=False)
+                        csv_data = csv_buffer.getvalue()
+                        
+                        col1, col2, col3 = st.columns([1, 1, 1])
+                        with col2:
+                            st.download_button(
+                                label="📥 Download Selected Criteria (CSV)",
+                                data=csv_data,
+                                file_name=f"selected_criteria_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                                mime="text/csv",
+                                use_container_width=True,
+                                type="primary"
+                            )
+                        
                         with st.expander("📊 View Detailed Results"):
                             st.markdown("### Objective Breakdown")
                             
@@ -2084,6 +2100,73 @@ def show_step4_run_optimization():
                             st.write(f"- Cost-Effectiveness: {term_w7:.6f}")
                             st.write(f"- Alignment: {term_w8:.6f}")
                             st.write(f"- Cognitive Coherence: {term_w9:.6f}")
+                            
+                            st.markdown("---")
+                            st.markdown("### 📥 Export Detailed Results")
+                            
+                            # Create comprehensive results dataframe
+                            detailed_results = {
+                                'Summary': [],
+                                'Value': []
+                            }
+                            
+                            # Add summary metrics
+                            detailed_results['Summary'].extend([
+                                'Total Criteria',
+                                'Selected Criteria',
+                                'Objectivity Ratio (ρ)',
+                                'Objective Function Value',
+                                '',
+                                'Objective Breakdown:',
+                                'Completeness',
+                                'Objectivity',
+                                'Measurability',
+                                'Sensitivity',
+                                'Cost-Effectiveness',
+                                'Alignment',
+                                'Cognitive Coherence',
+                                '',
+                                'Selected Criteria:'
+                            ])
+                            
+                            detailed_results['Value'].extend([
+                                str(len(I)),
+                                str(len(selected)),
+                                f"{rho_val:.4f}",
+                                f"{float(pyo.value(model.obj)):.6f}",
+                                '',
+                                '',
+                                f"{term_w1:.6f}",
+                                f"{term_w2:.6f}",
+                                f"{term_w3:.6f}",
+                                f"{term_w6:.6f}",
+                                f"{term_w7:.6f}",
+                                f"{term_w8:.6f}",
+                                f"{term_w9:.6f}",
+                                '',
+                                ''
+                            ])
+                            
+                            # Add selected criteria
+                            for i in selected:
+                                detailed_results['Summary'].append(f"C{i}")
+                                detailed_results['Value'].append(data['criteria_names'][i-1])
+                            
+                            results_df = pd.DataFrame(detailed_results)
+                            
+                            # Create CSV
+                            csv_detailed_buffer = io.StringIO()
+                            results_df.to_csv(csv_detailed_buffer, index=False)
+                            csv_detailed_data = csv_detailed_buffer.getvalue()
+                            
+                            st.download_button(
+                                label="📥 Download Complete Results (CSV)",
+                                data=csv_detailed_data,
+                                file_name=f"complete_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                                mime="text/csv",
+                                use_container_width=True,
+                                type="secondary"
+                            )
                         
                     else:
                         st.error("❌ No optimal solution found. Consider relaxing thresholds.")
@@ -2098,7 +2181,7 @@ def show_step4_run_optimization():
 # ================================================================
 
 def main():
-    st.markdown('<h1 class="main-title"> Criteria Selection Tool of CREST</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title">🎯 Criteria Selection Tool of CREST</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">11-Step Multi-Criteria Decision Analysis with Optimization</p>', unsafe_allow_html=True)
     
     show_progress_indicator(st.session_state.current_step)
