@@ -1639,7 +1639,7 @@ def show_step2_upload_extract():
                             })
                             st.dataframe(criteria_df, use_container_width=True, hide_index=True)
                         
-                        with st.expander("🎯 View Objectives"):
+                        with st.expander(" View Objectives"):
                             for i, name in enumerate(data['objectives_names'], 1):
                                 criteria_in_obj = data['obj_map'].get(i, [])
                                 st.write(f"**O{i}: {name}** → Criteria: {criteria_in_obj}")
@@ -1843,7 +1843,7 @@ def show_step3_set_weights():
         
         st.markdown(f"""
         <div class="reference-box">
-            <strong>🎯 Reference: {components[reference_component][0]}</strong><br>
+            <strong> Reference: {components[reference_component][0]}</strong><br>
             This component is set to 100 (maximum value)<br>
             <span style="font-size: 0.875rem; color: #92400e;">{range_display}</span>
         </div>
@@ -1954,7 +1954,7 @@ def show_step3_set_weights():
         
         st.markdown(f"""
         <div style="background: #fef3c7; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; border: 2px solid #f59e0b;">
-            <div style="font-weight: 600; color: #92400e;">🎯 Reference Component:</div>
+            <div style="font-weight: 600; color: #92400e;"> Reference Component:</div>
             <div style="font-size: 1.1rem; font-weight: 700; color: #92400e;">{components[reference_component][0]}</div>
             <div style="font-size: 0.875rem; color: #92400e;">Raw: 100 → Normalized: {normalized[reference_component]:.4f}</div>
         </div>
@@ -2098,7 +2098,7 @@ def show_step4_run_optimization():
 # ================================================================
 
 def main():
-    st.markdown('<h1 class="main-title">🎯 Criteria Selection Tool of CREST</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title"> Criteria Selection Tool of CREST</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">11-Step Multi-Criteria Decision Analysis with Optimization</p>', unsafe_allow_html=True)
     
     show_progress_indicator(st.session_state.current_step)
