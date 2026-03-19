@@ -18,7 +18,7 @@ import io
 # ================================================================
 st.set_page_config(
     page_title="Stage 2: Criteria Selection Tool of CREST",
-    page_icon="🎯",
+    page_icon=" ",
     layout="wide",
     initial_sidebar_state="expanded"
 )
