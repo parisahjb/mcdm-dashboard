@@ -2182,7 +2182,7 @@ def show_step4_run_optimization():
 
 def main():
     st.markdown('<h1 class="main-title"> Criteria Selection Tool of CREST</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-title">11-Step Multi-Criteria Decision Analysis with Optimization</p>', unsafe_allow_html=True)
+    # st.markdown('<p class="sub-title">11-Step Multi-Criteria Decision Analysis with Optimization</p>', unsafe_allow_html=True)
     
     show_progress_indicator(st.session_state.current_step)
     st.markdown("---")
