@@ -17,7 +17,7 @@ import io
 # PAGE CONFIGURATION
 # ================================================================
 st.set_page_config(
-    page_title="Stage 2: Criteria Selection Tool of CREST",
+    page_title="Phase 2: Criteria Selection Tool of CREST",
     page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -2181,7 +2181,7 @@ def show_step4_run_optimization():
 # ================================================================
 
 def main():
-    st.markdown('<h1 class="main-title"> Criteria Selection Tool of CREST</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title"> Phase 2: Criteria Selection Tool of CREST</h1>', unsafe_allow_html=True)
     # st.markdown('<p class="sub-title">11-Step Multi-Criteria Decision Analysis with Optimization</p>', unsafe_allow_html=True)
     
     show_progress_indicator(st.session_state.current_step)
