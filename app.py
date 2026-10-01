@@ -113,14 +113,15 @@ RATING_QUESTIONS = {
     9: "Judge the decision-relevant informational value of criterion i relative to the resources required for its assessment (financial cost, time, data, expertise, effort). Higher scores indicate a more favorable balance. (0 to 10)",
 }
 
-TOL = 1e-12
+# Used only to verify the solver objective after solving; never moves a cutoff.
+OBJECTIVE_CHECK_TOL = 1e-7
 
 # ================================================================
 # EXCEL TEMPLATE GENERATOR
 # ================================================================
 
 def generate_excel_template(num_criteria, num_alternatives, num_experts, num_objectives,
-                            omega, zeta, L_list, U_list, active, thresholds, n_mc, seed, M_big, eps):
+                            omega, zeta, L_list, U_list, active, thresholds, n_mc, seed, M_big):
     """Generate the complete Excel template (Configuration plus one sheet per property).
 
     Inactive properties still receive a sheet, but their input cells are prefilled with 0 and the
@@ -133,7 +134,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         'num_experts': num_experts, 'num_objectives': num_objectives,
         'omega': omega, 'zeta': zeta, 'L': L_list, 'U': U_list,
         'active': dict(active), 'thresholds': dict(thresholds),
-        'n_mc': n_mc, 'seed': seed, 'M': M_big, 'eps': eps,
+        'n_mc': n_mc, 'seed': seed, 'M': M_big,
     }
 
     wb = openpyxl.Workbook()
@@ -315,10 +316,9 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         ("n_mc", "Property XIII: Monte Carlo runs (N_MC)"),
         ("seed", "Property XIII: Random seed"),
         ("M", "MILP Big-M constant (M)"),
-        ("eps", "MILP strict-comparison tolerance (epsilon)"),
     ]
     values_map = dict(thresholds)
-    values_map.update({'n_mc': n_mc, 'seed': seed, 'M': M_big, 'eps': eps})
+    values_map.update({'n_mc': n_mc, 'seed': seed, 'M': M_big})
     meta['threshold_keys'] = ",".join(k for k, _ in threshold_rows)
     for key, label in threshold_rows:
         ws_config[f'A{row}'] = label
@@ -684,7 +684,8 @@ def read_mcdm_template(file):
     for j, key in enumerate(thr_keys):
         thr[key] = _num(cfg.cell(row=thr_row + j, column=2).value, key)
     n_mc, seed = int(thr.pop('n_mc')), int(thr.pop('seed'))
-    M_big, eps = thr.pop('M'), thr.pop('eps')
+    M_big = thr.pop('M')
+    thr.pop('eps', None)  # legacy epsilon from older templates is ignored
 
     I = list(range(1, n + 1))
     O = list(range(1, nO + 1))
@@ -754,8 +755,8 @@ def read_mcdm_template(file):
                 raise ValueError(f"Objective O{o} ({objectives_names[o-1]}) has no candidate representative after strict-majority consolidation.")
             if not (1 <= L[o] <= U[o] <= I_o[o]):
                 raise ValueError(f"Objective O{o}: representation targets must satisfy 1 <= L(o) <= U(o) <= |I_o|. Found L={L[o]}, U={U[o]}, |I_o|={I_o[o]}.")
-    if active[5] and not (0 <= omega < zeta <= n):
-        raise ValueError(f"Parsimony targets must satisfy 0 <= omega < zeta <= |I|. Found omega={omega}, zeta={zeta}, |I|={n}.")
+    if active[5] and not (0 <= omega <= zeta <= n):
+        raise ValueError(f"Parsimony targets must satisfy 0 <= omega <= zeta <= |I|. Found omega={omega}, zeta={zeta}, |I|={n}.")
 
     # Property VI: Assessment Mode (strict majority; ties unresolved)
     ws6 = wb["VI_Assessment_Mode"]
@@ -861,7 +862,7 @@ def read_mcdm_template(file):
         'delta': thr['delta'], 'theta': thr['theta'],
     }
 
-    return {
+    data = {
         'num_criteria': n, 'num_alternatives': A, 'num_experts': E, 'num_objectives': nO,
         'criteria_names': criteria_names, 'criteria_types': criteria_types,
         'criteria': {i: criteria_names[i - 1] for i in I},
@@ -875,11 +876,62 @@ def read_mcdm_template(file):
         'g': g, 'L': L, 'U': U, 'I_o': I_o, 'D': D, 'pairs': pairs,
         'obj_map': {o: [f"C{i}" for i in I if g[(i, o)] == 1] for o in O},
         'thresholds': thresholds, 'omega': omega, 'zeta': zeta,
-        'rho_LB': rho_LB, 'rho_UB': rho_UB, 'M': M_big, 'epsilon': eps,
+        'rho_LB': rho_LB, 'rho_UB': rho_UB, 'M': M_big,
         'n_mc': n_mc, 'seed': seed, 'ties': ties,
         'raw': {'concern': concern, 'range': rng, 'a': a_raw, 'dr': dr_raw, 'op': op_raw, 'un': un_raw,
                 'ce': ce_raw, 'ua': ua_raw, 'b': b_raw, 'o': o_votes},
     }
+    validate_model_data(data)
+    return data
+
+
+def score_gate_specs(d):
+    """Property number, label, values, threshold key, and binary notation of every score gate."""
+    return [
+        (1, "Completeness - concern", d['c_con'], 'alpha_con', "y_i^con"),
+        (1, "Completeness - range", d['c_rng'], 'alpha_rng', "y_i^rng"),
+        (2, "Alignment", d['a'], 'lambda', "y_i^a"),
+        (3, "Directness", d['dr'], 'psi', "y_i^dr"),
+        (7, "Operationality", d['op'], 'gamma', "y_i^op"),
+        (8, "Understandability", d['un'], 'eta', "y_i^un"),
+        (9, "Cost-effectiveness", d['ce'], 'tau', "y_i^ce"),
+        (10, "Unambiguity", d['ua'], 'mu', "y_i^ua"),
+        (13, "Sensitivity", d['s'], 'theta', "y_i^s"),
+    ]
+
+
+def validate_model_data(d):
+    """Reject invalid inputs and an insufficient Big-M before the model is built."""
+    import math
+    if not d['I']:
+        raise ValueError("The candidate set must contain at least one criterion.")
+    for key in ('q', 'o_i'):
+        if set(d[key]) != set(d['I']) or any(v not in (0, 1) for v in d[key].values()):
+            raise ValueError(f"{key} must contain one binary value for every criterion.")
+    differences = []
+    for number, name, values, threshold_key, _ in score_gate_specs(d):
+        if not d['active'][number]:
+            continue
+        threshold = d['thresholds'][threshold_key]
+        if not math.isfinite(threshold) or threshold < 0:
+            raise ValueError(f"Invalid threshold for {name}: {threshold}.")
+        if number != 13 and threshold > 10:
+            raise ValueError(f"The threshold for {name} must be in [0, 10].")
+        for i, value in values.items():
+            if not math.isfinite(value) or value < 0 or (number != 13 and value > 10):
+                raise ValueError(f"Invalid score for {name}, C{i}: {value}. Scores must lie in [0, 10].")
+            differences.append(abs(value - threshold))
+    if d['active'][12]:
+        delta = d['thresholds']['delta']
+        if not math.isfinite(delta) or not 0 <= delta <= 1:
+            raise ValueError("delta must lie in [0, 1].")
+        for pair, r in d['pairs'].items():
+            if not math.isfinite(r) or not 0 <= r <= 1:
+                raise ValueError(f"Invalid pooled absolute correlation for {pair}: {r}.")
+            differences.append(abs(r - delta))
+    required_M = max(differences, default=0.0)
+    if not math.isfinite(d['M']) or d['M'] <= 0 or d['M'] < required_M:
+        raise ValueError(f"M = {d['M']} is too small. The active classification constraints require M >= {required_M:.4f} and M > 0.")
 
 
 # ================================================================
@@ -931,12 +983,15 @@ def evaluate_portfolio(selected, d, w, reward_coeff):
     N = len(chosen)
     if N == 0:
         return None
+    gates = gate_results(d)
+    if any(i not in gates or not all(gates[i].values()) for i in chosen):
+        return None
     n_o = {o: sum(d['g'][(i, o)] for i in chosen) for o in d['O']}
     if d['active'][4] and any(n_o[o] < 1 for o in d['O']):
         return None
     if d['active'][6]:
         quant = sum(d['o_i'][i] for i in chosen)
-        if quant + TOL < d['rho_LB'] * N or quant - TOL > d['rho_UB'] * N:
+        if quant < d['rho_LB'] * N or quant > d['rho_UB'] * N:
             return None
     delta = d['thresholds']['delta']
     if d['active'][12] and any(i in chosen and k in chosen for (i, k), r in d['pairs'].items() if r > delta):
@@ -980,8 +1035,10 @@ def evaluate_portfolio(selected, d, w, reward_coeff):
 # ================================================================
 
 def build_mcdm_model(d, w, reward_coeff):
+    """Epsilon-free MILP: minimum gates use score >= threshold, joint selection requires correlation <= delta."""
+    validate_model_data(d)
     I, O, P = d['I'], d['O'], sorted(d['pairs'])
-    M_big, eps = d['M'], d['epsilon']
+    M_big = d['M']
     act = d['active']; t = d['thresholds']
 
     m = pyo.ConcreteModel(name="CREST_13_Property_Selection")
@@ -993,7 +1050,8 @@ def build_mcdm_model(d, w, reward_coeff):
         setattr(m, nm, pyo.Var(m.I, domain=pyo.Binary))
     m.h = pyo.Var(m.P, domain=pyo.Binary)
     m.t = pyo.Var(m.P, domain=pyo.Binary)
-    m.N = pyo.Var(domain=pyo.NonNegativeIntegers)
+    # A nonempty portfolio is required to define rho = sum(o_i x_i) / N.
+    m.N = pyo.Var(domain=pyo.NonNegativeIntegers, bounds=(1, len(I)))
     m.n = pyo.Var(m.O, domain=pyo.NonNegativeIntegers)
     m.d1_minus = pyo.Var(domain=pyo.NonNegativeIntegers)
     m.d1_plus = pyo.Var(domain=pyo.NonNegativeIntegers)
@@ -1005,8 +1063,8 @@ def build_mcdm_model(d, w, reward_coeff):
     m.do2_plus = pyo.Var(m.O, domain=pyo.NonNegativeIntegers)
 
     def add_gate(prefix, values, threshold, y):
-        setattr(m, f"{prefix}_upper", pyo.Constraint(m.I, rule=lambda mm, i: values[i] - threshold <= M_big * y[i] - eps))
-        setattr(m, f"{prefix}_lower", pyo.Constraint(m.I, rule=lambda mm, i: values[i] - threshold >= -M_big * (1 - y[i]) - eps))
+        setattr(m, f"{prefix}_upper", pyo.Constraint(m.I, rule=lambda mm, i: values[i] - threshold <= M_big * y[i]))
+        setattr(m, f"{prefix}_lower", pyo.Constraint(m.I, rule=lambda mm, i: values[i] - threshold >= -M_big * (1 - y[i])))
         setattr(m, f"{prefix}_select", pyo.Constraint(m.I, rule=lambda mm, i: mm.x[i] <= y[i]))
 
     if act[1]:
@@ -1044,11 +1102,11 @@ def build_mcdm_model(d, w, reward_coeff):
     if act[12]:
         delta = t['delta']
         m.dist_upper = pyo.Constraint(m.P, rule=lambda mm, i, k: d['pairs'][(i, k)] - delta <= M_big * mm.h[i, k])
-        m.dist_lower = pyo.Constraint(m.P, rule=lambda mm, i, k: d['pairs'][(i, k)] - delta >= eps - M_big * (1 - mm.h[i, k]))
+        m.dist_lower = pyo.Constraint(m.P, rule=lambda mm, i, k: d['pairs'][(i, k)] - delta >= -M_big * (1 - mm.h[i, k]))
         m.dist_select = pyo.Constraint(m.P, rule=lambda mm, i, k: mm.x[i] + mm.x[k] <= 2 - mm.h[i, k])
-        m.lin1 = pyo.Constraint(m.P, rule=lambda mm, i, k: mm.t[i, k] <= mm.x[i])
-        m.lin2 = pyo.Constraint(m.P, rule=lambda mm, i, k: mm.t[i, k] <= mm.x[k])
-        m.lin3 = pyo.Constraint(m.P, rule=lambda mm, i, k: mm.t[i, k] >= mm.x[i] + mm.x[k] - 1)
+    m.lin1 = pyo.Constraint(m.P, rule=lambda mm, i, k: mm.t[i, k] <= mm.x[i])
+    m.lin2 = pyo.Constraint(m.P, rule=lambda mm, i, k: mm.t[i, k] <= mm.x[k])
+    m.lin3 = pyo.Constraint(m.P, rule=lambda mm, i, k: mm.t[i, k] >= mm.x[i] + mm.x[k] - 1)
 
     rep_penalty = 0.0
     if act[4]:
@@ -1077,7 +1135,19 @@ def pick_solver():
     raise RuntimeError("No MILP solver found (tried HiGHS, CBC, GLPK).")
 
 
+def attach_auxiliary_from_enumeration(best, d):
+    """Enumeration returns one valid auxiliary assignment (at equality it is not unique)."""
+    best['y_values'] = {
+        notation: {i: int(values[i] >= d['thresholds'][key]) for i in d['I']}
+        for number, _, values, key, notation in score_gate_specs(d) if d['active'][number]
+    }
+    best['h_values'] = {
+        pair: int(r > d['thresholds']['delta']) for pair, r in d['pairs'].items()
+    } if d['active'][12] else {}
+
+
 def solve_by_enumeration(d, w, reward_coeff, gates):
+    validate_model_data(d)
     eligible = [i for i in d['I'] if all(gates[i].values())]
     best = None
     for size in range(1, len(eligible) + 1):
@@ -1090,31 +1160,59 @@ def solve_by_enumeration(d, w, reward_coeff, gates):
                 best = cand
     if best is None:
         raise RuntimeError("No feasible portfolio satisfies the active properties.")
+    attach_auxiliary_from_enumeration(best, d)
     return best
 
 
 def solve_model(d, w):
-    """Solve the MILP. Returns (solution, gates, reward_coeff, denominators, method)."""
+    """Solve the epsilon-free MILP and verify the result independently.
+
+    Returns (solution, gates, reward_coeff, denominators, method). Only a missing solver
+    triggers exact enumeration; infeasibility or solver failures are reported, never hidden.
+    """
+    import math
+    validate_model_data(d)
     gates = gate_results(d)
     reward_coeff, denominators = normalized_reward_coefficients(d, w)
     try:
-        model = build_mcdm_model(d, w, reward_coeff)
         solver, name = pick_solver()
-        result = solver.solve(model, tee=False)
-        if result.solver.termination_condition != TerminationCondition.optimal:
-            raise RuntimeError(f"MILP did not reach optimality: {result.solver.termination_condition}")
-        selected = tuple(i for i in d['I'] if pyo.value(model.x[i]) > 0.5)
-        solution = evaluate_portfolio(selected, d, w, reward_coeff)
-        if solution is None:
-            raise RuntimeError("Solver returned a portfolio that failed post-solve validation.")
-        return solution, gates, reward_coeff, denominators, f"Pyomo + {name.upper()} MILP"
-    except RuntimeError as exc:
-        if "did not reach optimality" in str(exc) and "infeasible" in str(exc).lower():
-            raise
-        if len(d['I']) > 20:
-            raise
+    except RuntimeError:
+        if len(d['I']) > 22:
+            raise RuntimeError("No MILP solver is installed and exhaustive enumeration would be too large for this instance.")
         solution = solve_by_enumeration(d, w, reward_coeff, gates)
-        return solution, gates, reward_coeff, denominators, f"Exact enumeration (fallback: {exc})"
+        return solution, gates, reward_coeff, denominators, "Exact enumeration (MILP-equivalent for this finite instance)"
+
+    model = build_mcdm_model(d, w, reward_coeff)
+    if name in ("highs", "appsi_highs"):
+        try:
+            solver.options["mip_rel_gap"] = 0.0
+            solver.options["mip_abs_gap"] = 0.0
+        except Exception:
+            pass
+    result = solver.solve(model, tee=False, load_solutions=False)
+    if result.solver.termination_condition != TerminationCondition.optimal:
+        raise RuntimeError(f"MILP did not reach optimality: {result.solver.termination_condition}. "
+                           "If it is infeasible, relax a threshold, a representation target, or the Assessment Mode interval.")
+    model.solutions.load_from(result)
+    selected = tuple(i for i in d['I'] if pyo.value(model.x[i]) > 0.5)
+    solution = evaluate_portfolio(selected, d, w, reward_coeff)
+    if solution is None:
+        raise RuntimeError("The solver returned a portfolio that failed exact threshold/portfolio validation. "
+                           "Check the precision of scores close to a cutoff; no epsilon is added to the model.")
+    if not math.isclose(pyo.value(model.objective), solution['objective'], rel_tol=OBJECTIVE_CHECK_TOL, abs_tol=OBJECTIVE_CHECK_TOL):
+        raise RuntimeError("The MILP objective differs from the independent portfolio calculation.")
+    gate_variables = {
+        "y_i^con": model.y_con, "y_i^rng": model.y_rng, "y_i^a": model.y_a, "y_i^dr": model.y_dr,
+        "y_i^op": model.y_op, "y_i^un": model.y_un, "y_i^ce": model.y_ce, "y_i^ua": model.y_ua, "y_i^s": model.y_s,
+    }
+    solution['y_values'] = {
+        notation: {i: int(round(pyo.value(gate_variables[notation][i]))) for i in d['I']}
+        for number, _, _, _, notation in score_gate_specs(d) if d['active'][number]
+    }
+    solution['h_values'] = {
+        pair: int(round(pyo.value(model.h[pair]))) for pair in d['pairs']
+    } if d['active'][12] else {}
+    return solution, gates, reward_coeff, denominators, f"Pyomo + {name.upper()} MILP"
 
 
 # ================================================================
@@ -1200,10 +1298,13 @@ def build_result_frames(d, w, solution, gates, reward_coeff, denominators, metho
         both, flagged = (i in chosen and k in chosen), r > delta
         pair_rows.append({
             "i": f"C{i}", "Criterion i": d['criteria'][i], "k": f"C{k}", "Criterion k": d['criteria'][k],
-            "tilde_r_ik": r, "delta": delta, "h_ik": int(flagged), "t_ik": int(both),
+            "tilde_r_ik": r, "delta": delta,
+            "h_ik": solution['h_values'].get((i, k)), "t_ik": int(both),
             "Jointly selected": "Yes" if both else "No",
-            "Status": (("Prohibited pair" if flagged else "Within cap") if act[12] else "Property inactive"),
+            "Status": (("Prohibited pair" if flagged else "At cutoff - joint selection permitted" if r == delta else "Within cap")
+                       if act[12] else "Property inactive"),
             "Objective numerator contribution": r if (both and act[12]) else 0.0,
+            "Permitted h_ik values before selection": (("0 or 1" if r == delta else "1" if flagged else "0") if act[12] else "Inactive"),
         })
     pairwise = pd.DataFrame(pair_rows)
 
@@ -1251,6 +1352,9 @@ def build_result_frames(d, w, solution, gates, reward_coeff, denominators, metho
         ["Assessment Mode", status(6), "Composition interval imposed" if act[6] else "Composition interval not imposed"],
         ["Reported quantitative proportion rho", solution['rho'], "Computed after selection from o_i tags"],
         ["Parsimony deviations", f"d1-={solution['d1_minus']}; d1+={solution['d1_plus']}; d2-={solution['d2_minus']}; d2+={solution['d2_plus']}", "Penalized only when Property V is active"],
+        ["Threshold convention", "Equality permitted", "Minimum gates use score >= threshold; joint selection requires correlation <= delta. No epsilon shift."],
+        ["Boundary indicators", "May be 0 or 1", "Gate_Review and Pairwise_Review report the returned auxiliary values. Eligibility at equality is independent of an unselected criterion's indicator."],
+        ["Nonempty portfolio", "N >= 1", "Required for the reported proportion rho."],
         ["Weighting", "SWING (app Step 3)", "Weights of inactive properties are locked to 0; active weights sum to 1"],
     ], columns=["Metric", "Value", "Interpretation"])
 
@@ -1293,13 +1397,29 @@ def build_result_frames(d, w, solution, gates, reward_coeff, denominators, metho
         [13, "Monte Carlo", "N_MC", d['n_mc'], use(13, "runs")],
         [13, "Monte Carlo", "seed", d['seed'], use(13, "random seed")],
         ["", "MILP setting", "M", d['M'], "Big-M constant"],
-        ["", "MILP setting", "epsilon", d['epsilon'], "Strict-comparison tolerance"],
     ], columns=["Property no.", "Type", "Notation", "Value", "Status / role"])
+
+    gate_rows = []
+    for number, name, values, key, notation in score_gate_specs(d):
+        threshold = d['thresholds'][key]
+        for i in d['I']:
+            value = values[i]
+            gate_rows.append({
+                "Property no.": number, "Property": name, "i": f"C{i}", "Criterion": d['criteria'][i],
+                "Score": value, "Threshold": threshold, "Status": status(number),
+                "Relation to threshold": "At threshold" if value == threshold else "Above" if value > threshold else "Below",
+                "Eligible under this gate": (("Yes" if value >= threshold else "No") if act[number] else "Inactive"),
+                "Binary notation": notation,
+                "Returned y value": solution['y_values'].get(notation, {}).get(i),
+                "Permitted y values before selection": (("0 or 1" if value == threshold else "1" if value > threshold else "0") if act[number] else "Inactive"),
+                "x_i": int(i in chosen),
+            })
 
     return {
         "Summary": summary, "Property_Activation": activation, "Selected_Portfolio": selected,
         "Criterion_Decisions": decisions, "Objective_Coverage": coverage,
         "Objective_Breakdown": breakdown, "Pairwise_Review": pairwise, "Model_Controls": controls,
+        "Gate_Review": pd.DataFrame(gate_rows),
     }
 
 
@@ -1442,19 +1562,19 @@ def show_step1_generate_template():
             theta = st.number_input("XIII. Sensitivity (theta)", value=0.035, format="%.4f", key="theta")
 
     with st.expander("🧪 Advanced Settings (Monte Carlo and MILP constants)"):
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3 = st.columns(3)
         n_mc = c1.number_input("Sensitivity Monte Carlo runs (N_MC)", min_value=10, value=1000, step=100, key="n_mc")
         seed = c2.number_input("Random seed", min_value=0, value=42, step=1, key="seed")
-        M_big = c3.number_input("Big-M constant (M)", min_value=1.0, value=10000.0, key="M_big")
-        eps = c4.number_input("Epsilon", min_value=1e-9, value=1e-6, format="%.1e", key="eps")
+        M_big = c3.number_input("Big-M constant (M)", min_value=1.0, value=10000.0, key="M_big",
+                                help="Must be at least as large as the largest score-to-threshold or correlation-to-delta difference. The default is safe for 0 to 10 scores.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("🎨 Generate Excel Template", type="primary", use_container_width=True):
             errors = []
-            if int(omega) >= int(zeta):
-                errors.append("omega must be strictly smaller than zeta.")
+            if int(omega) > int(zeta):
+                errors.append("omega must not exceed zeta.")
             if int(zeta) > int(num_criteria):
                 errors.append("zeta cannot exceed the number of criteria.")
             if active[10] and int(num_experts) < 2:
@@ -1475,7 +1595,7 @@ def show_step1_generate_template():
                     buffer, config = generate_excel_template(
                         int(num_criteria), int(num_alternatives), int(num_experts), int(num_objectives),
                         int(omega), int(zeta), [int(v) for v in L_list], [int(v) for v in U_list],
-                        active, thresholds, int(n_mc), int(seed), float(M_big), float(eps))
+                        active, thresholds, int(n_mc), int(seed), float(M_big))
                     st.session_state.config = config
                     st.success("✅ Template generated successfully!")
                     st.download_button(
@@ -1775,7 +1895,7 @@ def show_step4_run_optimization():
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     d1, d2 = st.columns(2)
     with d1:
-        st.download_button("📥 Download Full Results (Excel, 8 sheets)", data=export_results_excel(frames),
+        st.download_button("📥 Download Full Results (Excel, 9 sheets)", data=export_results_excel(frames),
                            file_name=f"CREST_Optimization_Results_{stamp}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            use_container_width=True, type="primary")
@@ -1796,6 +1916,8 @@ def show_step4_run_optimization():
     if data['active'][12]:
         with st.expander("🔗 Pairwise review (Distinctiveness)"):
             st.dataframe(frames['Pairwise_Review'], use_container_width=True, hide_index=True)
+    with st.expander("🚦 Gate review (score versus threshold)"):
+        st.dataframe(frames['Gate_Review'], use_container_width=True, hide_index=True)
     with st.expander("⚙️ Model controls used"):
         st.dataframe(frames['Model_Controls'], use_container_width=True, hide_index=True)
 
