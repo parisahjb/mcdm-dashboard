@@ -1502,14 +1502,14 @@ def show_navigation_buttons(current_step):
     col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
         if current_step > 1:
-            if st.button("⬅️ Back", use_container_width=True, type="secondary"):
+            if st.button("⬅️ Back", width="stretch", type="secondary"):
                 st.session_state.current_step = current_step - 1
                 st.rerun()
     with col3:
         if current_step < 4:
             can_proceed = (current_step == 1) or (current_step == 2 and st.session_state.data is not None) \
                 or (current_step == 3 and st.session_state.weights is not None)
-            if st.button("Next ➡️", use_container_width=True, type="primary", disabled=not can_proceed):
+            if st.button("Next ➡️", width="stretch", type="primary", disabled=not can_proceed):
                 st.session_state.current_step = current_step + 1
                 st.rerun()
 
@@ -1585,7 +1585,7 @@ def show_step1_generate_template():
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("🎨 Generate Excel Template", type="primary", use_container_width=True):
+        if st.button("🎨 Generate Excel Template", type="primary", width="stretch"):
             errors = []
             if int(omega) > int(zeta):
                 errors.append("omega must not exceed zeta.")
@@ -1616,7 +1616,7 @@ def show_step1_generate_template():
                         label="📥 Download Excel Template", data=buffer,
                         file_name=f"CREST_Template_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True, type="primary")
+                        width="stretch", type="primary")
                     inactive = [PROPERTIES[p] for p in range(1, 14) if not active[p]]
                     st.markdown(f"""
                     <div class="info-box">
@@ -1645,7 +1645,7 @@ def show_step2_upload_extract():
         return
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        run = st.button("🔍 Extract Data", type="primary", use_container_width=True)
+        run = st.button("🔍 Extract Data", type="primary", width="stretch")
     if run:
         with st.spinner("Reading Excel file and computing property scores..."):
             try:
@@ -1691,7 +1691,7 @@ def show_step2_upload_extract():
                 'ce': data['ce'][i], 'ua': data['ua'][i], 'q': data['q'][i], 's_bar': round(data['s'][i], 4),
                 'o_i': data['o_i'][i], 'Gate status': "Eligible" if not failed else "Fails: " + "; ".join(failed),
             })
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
         st.caption(f"Thresholds: alpha^con={t['alpha_con']}, alpha^rng={t['alpha_rng']}, lambda={t['lambda']}, psi={t['psi']}, gamma={t['gamma']}, eta={t['eta']}, tau={t['tau']}, mu={t['mu']}, delta={t['delta']}, theta={t['theta']}")
 
     with st.expander("🎯 Objectives and consolidated assignments (strict majority)"):
@@ -1705,7 +1705,7 @@ def show_step2_upload_extract():
             for (i, k), r in data['pairs'].items():
                 mat[i - 1, k - 1] = mat[k - 1, i - 1] = r
             labels = [f"C{i}" for i in data['I']]
-            st.dataframe(pd.DataFrame(mat, index=labels, columns=labels).round(3), use_container_width=True)
+            st.dataframe(pd.DataFrame(mat, index=labels, columns=labels).round(3), width="stretch")
             flagged = [(i, k, r) for (i, k), r in data['pairs'].items() if r > t['delta']]
             if flagged:
                 st.warning("Pairs exceeding delta (cannot be selected jointly): " + "; ".join(f"C{i}-C{k} ({r:.3f})" for i, k, r in flagged))
@@ -1878,7 +1878,7 @@ def show_step4_run_optimization():
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("🚀 Run Optimization", type="primary", use_container_width=True):
+        if st.button("🚀 Run Optimization", type="primary", width="stretch"):
             with st.spinner("Building and solving the criterion-selection MILP..."):
                 try:
                     solution, gates, reward_coeff, denominators, method = solve_model(data, weights)
@@ -1904,7 +1904,7 @@ def show_step4_run_optimization():
     st.caption(frames['Summary'].loc[1, 'Value'])
 
     st.subheader("✅ Selected Criteria")
-    st.dataframe(frames['Selected_Portfolio'], use_container_width=True, hide_index=True)
+    st.dataframe(frames['Selected_Portfolio'], width="stretch", hide_index=True)
 
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     d1, d2 = st.columns(2)
@@ -1912,28 +1912,28 @@ def show_step4_run_optimization():
         st.download_button("📥 Download Full Results (Excel, 9 sheets)", data=export_results_excel(frames),
                            file_name=f"CREST_Optimization_Results_{stamp}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                           use_container_width=True, type="primary")
+                           width="stretch", type="primary")
     with d2:
         st.download_button("📥 Download Selected Criteria (CSV)", data=frames['Selected_Portfolio'].to_csv(index=False),
-                           file_name=f"selected_criteria_{stamp}.csv", mime="text/csv", use_container_width=True)
+                           file_name=f"selected_criteria_{stamp}.csv", mime="text/csv", width="stretch")
 
     with st.expander("📊 Criterion decisions (gates, conflicts, and selection status)", expanded=True):
         cols = ["ID", "Criterion", "x_i", "Final status", "Primary exclusion reason", "Represented objectives", "Assessment Mode", "Normalized reward contribution"]
-        st.dataframe(frames['Criterion_Decisions'][cols], use_container_width=True, hide_index=True)
+        st.dataframe(frames['Criterion_Decisions'][cols], width="stretch", hide_index=True)
     with st.expander("🎯 Objective coverage"):
-        st.dataframe(frames['Objective_Coverage'], use_container_width=True, hide_index=True)
+        st.dataframe(frames['Objective_Coverage'], width="stretch", hide_index=True)
     with st.expander("🧮 Objective function breakdown"):
-        st.dataframe(frames['Objective_Breakdown'], use_container_width=True, hide_index=True)
+        st.dataframe(frames['Objective_Breakdown'], width="stretch", hide_index=True)
         st.write(f"**Reward:** {solution['reward']:.6f}  |  **Representativeness penalty:** {solution['rep_penalty']:.6f}  |  "
                  f"**Parsimony penalty:** {solution['parsimony_penalty']:.6f}  |  **Distinctiveness penalty:** {solution['distinctiveness_penalty']:.6f}  |  "
                  f"**Z:** {solution['objective']:.6f}")
     if data['active'][12]:
         with st.expander("🔗 Pairwise review (Distinctiveness)"):
-            st.dataframe(frames['Pairwise_Review'], use_container_width=True, hide_index=True)
+            st.dataframe(frames['Pairwise_Review'], width="stretch", hide_index=True)
     with st.expander("🚦 Gate review (score versus threshold)"):
-        st.dataframe(frames['Gate_Review'], use_container_width=True, hide_index=True)
+        st.dataframe(frames['Gate_Review'], width="stretch", hide_index=True)
     with st.expander("⚙️ Model controls used"):
-        st.dataframe(frames['Model_Controls'], use_container_width=True, hide_index=True)
+        st.dataframe(frames['Model_Controls'], width="stretch", hide_index=True)
 
 
 # ================================================================
@@ -1964,13 +1964,13 @@ def main():
             st.info("Upload data to see problem details")
         st.markdown("---")
         st.markdown("### 🧭 Quick Navigation")
-        if st.button("📝 Step 1: Generate", use_container_width=True, type="secondary"):
+        if st.button("📝 Step 1: Generate", width="stretch", type="secondary"):
             st.session_state.current_step = 1; st.rerun()
-        if st.button("📤 Step 2: Upload", use_container_width=True, type="secondary"):
+        if st.button("📤 Step 2: Upload", width="stretch", type="secondary"):
             st.session_state.current_step = 2; st.rerun()
-        if st.button("⚖️ Step 3: Weights", use_container_width=True, type="secondary", disabled=not st.session_state.data):
+        if st.button("⚖️ Step 3: Weights", width="stretch", type="secondary", disabled=not st.session_state.data):
             st.session_state.current_step = 3; st.rerun()
-        if st.button("🚀 Step 4: Optimize", use_container_width=True, type="secondary", disabled=not st.session_state.weights):
+        if st.button("🚀 Step 4: Optimize", width="stretch", type="secondary", disabled=not st.session_state.weights):
             st.session_state.current_step = 4; st.rerun()
 
     step = st.session_state.current_step
