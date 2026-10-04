@@ -7,7 +7,7 @@ Deployment (Streamlit Community Cloud):
   1. Add this file to the GitHub repository and add `anthropic` and `pypdf` to requirements.txt.
   2. Create a new app from the same repository with phase1_app.py as the main file.
   3. In the app's Settings > Secrets, add:
-         ANTHROPIC_API_KEY = "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"
+         ANTHROPIC_API_KEY = "sk-ant-..."
      Optional overrides (model IDs and the per-visitor request limit):
          MODEL_RECOMMENDED = "claude-sonnet-5-5"
          MODEL_FAST = "claude-haiku-4-5-20251001"
@@ -280,7 +280,10 @@ def step_setup():
         st.selectbox("AI Model", list(MODEL_CHOICES), key="model_label")
         if st.button("Use Research API Key", type="primary"):
             S.personal_key = ""
-            st.success(f"AI configured! Model: {S.model_label}")
+            if secret("ANTHROPIC_API_KEY"):
+                st.success(f"AI configured! Model: {S.model_label}")
+            else:
+                st.warning("The research API key has not been added by the site administrator yet.")
     with st.expander("Option 2: Use Your Own Anthropic API Key (Advanced)"):
         st.markdown("1. Visit [console.anthropic.com](https://console.anthropic.com)  \n2. Create an account and open \"API Keys\"  \n"
                     "3. Generate a key and paste it below. It is used only for your session and is never stored.")
