@@ -7,7 +7,7 @@ Deployment (Streamlit Community Cloud):
   1. Add this file to the GitHub repository and add `anthropic` and `pypdf` to requirements.txt.
   2. Create a new app from the same repository with phase1_app.py as the main file.
   3. In the app's Settings > Secrets, add:
-         ANTHROPIC_API_KEY = "sk-ant-..."
+         ANTHROPIC_API_KEY = "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"
      Optional overrides (model IDs and the per-visitor request limit):
          MODEL_RECOMMENDED = "claude-sonnet-5-5"
          MODEL_FAST = "claude-haiku-4-5-20251001"
