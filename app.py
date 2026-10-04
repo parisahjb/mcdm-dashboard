@@ -116,6 +116,9 @@ RATING_QUESTIONS = {
 # Used only to verify the solver objective after solving; never moves a cutoff.
 OBJECTIVE_CHECK_TOL = 1e-7
 
+# Configuration rows that only document a property (no numeric threshold).
+INFO_THRESHOLD_KEYS = ('rep_targets', 'monotone_veto')
+
 # ================================================================
 # EXCEL TEMPLATE GENERATOR
 # ================================================================
@@ -245,7 +248,7 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         row += 1
     row += 1
 
-    ws_config[f'A{row}'] = "OBJECTIVES DEFINITIONS AND REPRESENTATION TARGETS (Property IV)"
+    ws_config[f'A{row}'] = "OBJECTIVES DEFINITIONS AND REPRESENTATION TARGETS L(o), U(o)"
     ws_config[f'A{row}'].font = Font(bold=True, size=12)
     ws_config[f'A{row}'].fill = section_fill
     ws_config.merge_cells(f'A{row}:E{row}')
@@ -282,17 +285,6 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         row += 1
     row += 1
 
-    ws_config[f'A{row}'] = "PARSIMONY TARGETS (Property V)"
-    ws_config[f'A{row}'].font = Font(bold=True, size=12)
-    ws_config[f'A{row}'].fill = section_fill
-    ws_config.merge_cells(f'A{row}:E{row}')
-    row += 1
-    PARSIMONY_ROW = row
-    meta['parsimony_row'] = PARSIMONY_ROW
-    ws_config[f'A{row}'] = "Target Minimum (omega)"; ws_config[f'B{row}'] = omega; row += 1
-    ws_config[f'A{row}'] = "Target Maximum (zeta)"; ws_config[f'B{row}'] = zeta; row += 1
-    row += 1
-
     ws_config[f'A{row}'] = "THRESHOLDS, BOUNDS, AND MODEL SETTINGS"
     ws_config[f'A{row}'].font = Font(bold=True, size=12)
     ws_config[f'A{row}'].fill = section_fill
@@ -305,12 +297,16 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         ("alpha_rng", "Property I: Completeness, consequence range (alpha^rng)"),
         ("lambda", "Property II: Alignment (lambda)"),
         ("psi", "Property III: Directness (psi)"),
+        ("rep_targets", "Property IV: Representativeness targets L(o) and U(o)"),
+        ("omega", "Property V: Parsimony target minimum (omega)"),
+        ("zeta", "Property V: Parsimony target maximum (zeta)"),
         ("rho_LB", "Property VI: Assessment Mode lower bound (rho^LB)"),
         ("rho_UB", "Property VI: Assessment Mode upper bound (rho^UB)"),
         ("gamma", "Property VII: Operationality (gamma)"),
         ("eta", "Property VIII: Understandability (eta)"),
         ("tau", "Property IX: Cost-effectiveness (tau)"),
         ("mu", "Property X: Unambiguity (mu)"),
+        ("monotone_veto", "Property XI: Monotone Coherence (hard veto)"),
         ("delta", "Property XII: Distinctiveness (delta)"),
         ("theta", "Property XIII: Sensitivity (theta)"),
         ("n_mc", "Property XIII: Monte Carlo runs (N_MC)"),
@@ -318,12 +314,18 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         ("M", "MILP Big-M constant (M)"),
     ]
     values_map = dict(thresholds)
-    values_map.update({'n_mc': n_mc, 'seed': seed, 'M': M_big})
+    values_map.update({'n_mc': n_mc, 'seed': seed, 'M': M_big, 'omega': omega, 'zeta': zeta,
+                       'rep_targets': "Set per objective in the Objectives table above",
+                       'monotone_veto': "No threshold: q_i = 1 (unanimity) is required"})
     meta['threshold_keys'] = ",".join(k for k, _ in threshold_rows)
     for key, label in threshold_rows:
+        if key == 'omega':
+            meta['parsimony_row'] = row          # omega and zeta stay on consecutive rows
         ws_config[f'A{row}'] = label
         ws_config[f'B{row}'] = values_map[key]
         ws_config[f'C{row}'] = key
+        if key in INFO_THRESHOLD_KEYS:
+            ws_config[f'B{row}'].font = Font(italic=True, color="666666")
         row += 1
 
     ws_config.column_dimensions['A'].width = 55
@@ -605,6 +607,13 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         ws_meta.cell(row=r, column=2, value=v)
     ws_meta.sheet_state = 'hidden'
 
+    # Keep the property sheets in the numbering order of the framework (I to XIII).
+    sheet_order = ["Configuration", "I_Completeness", "II_Alignment", "III_Directness", "IV_Representativeness",
+                   "VI_Assessment_Mode", "VII_Operationality", "VIII_Understandability", "IX_Cost_Effectiveness",
+                   "X_Unambiguity", "XI_Monotone_Coherence", "XII_Distinctiveness", "XIII_Sensitivity", "_Meta"]
+    wb._sheets.sort(key=lambda sheet: sheet_order.index(sheet.title))
+    wb.active = 0
+
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
@@ -682,6 +691,8 @@ def read_mcdm_template(file):
     thr_keys = str(meta['threshold_keys']).split(",")
     thr = {}
     for j, key in enumerate(thr_keys):
+        if key in INFO_THRESHOLD_KEYS:
+            continue                             # informational rows (Properties IV and XI)
         thr[key] = _num(cfg.cell(row=thr_row + j, column=2).value, key)
     n_mc, seed = int(thr.pop('n_mc')), int(thr.pop('seed'))
     M_big = thr.pop('M')
@@ -1518,7 +1529,10 @@ def show_step1_generate_template():
         num_alternatives = st.number_input("Number of Alternatives", min_value=1, value=7, step=1, key="num_alt",
                                            help="Used only by Properties XII (Distinctiveness) and XIII (Sensitivity).")
         num_experts = st.number_input("Number of Experts", min_value=1, value=3, step=1, key="num_exp")
-        num_objectives = st.number_input("Number of Objectives", min_value=1, value=7, step=1, key="num_obj")
+        num_objectives = st.number_input("Number of Objectives", min_value=1, value=7, step=1, key="num_obj",
+                                         help="Number of finalized fundamental objectives of the decision: what the stakeholders ultimately want to "
+                                              "achieve (maximize, minimize, or keep within a range). Each criterion should measure achievement of at "
+                                              "least one of them (Properties II to IV).")
     with col2:
         st.subheader("Parsimony Targets (Property V)")
         omega = st.number_input("Target Minimum (omega)", min_value=0, value=5, step=1, key="omega")
