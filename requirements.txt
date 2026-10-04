@@ -5,3 +5,5 @@ openpyxl
 pyomo
 highspy
 xlsxwriter
+anthropic
+pypdf
