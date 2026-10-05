@@ -3,6 +3,8 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.comments import Comment
+from openpyxl.formatting.rule import FormulaRule
 import pandas as pd
 import numpy as np
 import pyomo.environ as pyo
@@ -180,6 +182,16 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
             cell.number_format = fmt
         return cell
 
+    who_font = Font(italic=True, bold=True, color="1F4E79")
+
+    def who_line(ws, text, last_col='L', height=32):
+        """Row 4 of a property sheet: who enters the data and what to enter."""
+        ws['A4'] = text
+        ws['A4'].font = who_font
+        ws['A4'].alignment = Alignment(wrap_text=True, vertical='top')
+        ws.merge_cells(f'A4:{last_col}4')
+        ws.row_dimensions[4].height = height
+
     def sheet_banner(ws, title, prop_num, extra_line=""):
         ws['A1'] = title
         ws['A1'].font = Font(bold=True, size=12)
@@ -200,6 +212,32 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
 
     meta = {}
     row = 3
+    ws_config[f'A{row}'] = "ROLES"
+    ws_config[f'A{row}'].font = Font(bold=True, size=12)
+    ws_config[f'A{row}'].fill = section_fill
+    ws_config.merge_cells(f'A{row}:E{row}')
+    row += 1
+    for label, text in [
+        ("Main User", "The agent or analyst responsible for gathering the required information and merging the inputs in order to "
+                      "finalize the criteria-selection task. The Main User fills this Configuration sheet, enters the objective "
+                      "information, makes sure that objective criterion values are identical across experts, and collects the "
+                      "experts' entries in the property sheets."),
+        ("Experts", "The subject-matter experts who provide the individual assessments. Each expert fills only their own column, "
+                    "block, or matrix in the property sheets, and assesses the subjective criteria."),
+        ("Who fills what", "Configuration sheet: Main User. Property sheets I to XIII: each expert's own entries, collected by the Main "
+                           "User. Objective criteria in the Sensitivity matrices (Property XIII): Main User. Each property sheet states "
+                           "this again in its row 4."),
+    ]:
+        ws_config[f'A{row}'] = label
+        ws_config[f'A{row}'].font = Font(bold=True)
+        ws_config[f'A{row}'].alignment = Alignment(vertical='top')
+        ws_config[f'B{row}'] = text
+        ws_config[f'B{row}'].alignment = Alignment(wrap_text=True, vertical='top')
+        ws_config.merge_cells(f'B{row}:E{row}')
+        ws_config.row_dimensions[row].height = 48
+        row += 1
+    row += 1
+
     ws_config[f'A{row}'] = "PROBLEM STRUCTURE"
     ws_config[f'A{row}'].font = Font(bold=True, size=12)
     ws_config[f'A{row}'].fill = section_fill
@@ -217,7 +255,12 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws_config[f'A{row}'].fill = section_fill
     ws_config.merge_cells(f'A{row}:E{row}')
     row += 1
-    header_row(ws_config, row, ["Criterion ID", "Criterion Name", "Type (Cost/Benefit)", "Description (Optional)"])
+    header_row(ws_config, row, ["Criterion ID", "Criterion Name", "Type (Cost/Benefit)", "Description (Optional)",
+                                "Performance basis (Objective/Subjective)"])
+    ws_config.cell(row=row, column=5).comment = Comment(
+        "Objective: the criterion's performance values are measured or calculated from data. The Main User enters them, and "
+        "they are identical in every expert matrix of the Sensitivity sheet (Property XIII).\n"
+        "Subjective: the performance values are based on expert judgment. Each expert enters their own values.", "CREST")
     row += 1
     CRITERIA_START_ROW = row
     meta['criteria_start_row'] = CRITERIA_START_ROW
@@ -226,10 +269,22 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         c = ws_config.cell(row=row, column=2, value=f"Criterion {i+1}"); c.fill = input_fill; c.border = thin_border
         c = ws_config.cell(row=row, column=3, value="Benefit"); c.fill = input_fill; c.border = thin_border
         c = ws_config.cell(row=row, column=4, value=""); c.fill = input_fill; c.border = thin_border
+        c = ws_config.cell(row=row, column=5, value=""); c.fill = input_fill; c.border = thin_border
         row += 1
     dv = DataValidation(type="list", formula1='"Cost,Benefit"', allow_blank=False)
     ws_config.add_data_validation(dv)
     dv.add(f"C{CRITERIA_START_ROW}:C{CRITERIA_START_ROW + num_criteria - 1}")
+    dv_basis = DataValidation(type="list", formula1='"Objective,Subjective"', allow_blank=True)
+    ws_config.add_data_validation(dv_basis)
+    dv_basis.add(f"E{CRITERIA_START_ROW}:E{CRITERIA_START_ROW + num_criteria - 1}")
+    ws_config[f'A{row}'] = ("Performance basis (Main User): Objective = values measured or calculated from data, identical for all "
+                            "experts and entered by the Main User. Subjective = values based on expert judgment, entered by each expert. "
+                            "Used in the Sensitivity matrices (Property XIII).")
+    ws_config[f'A{row}'].font = Font(italic=True, color="1F4E79")
+    ws_config[f'A{row}'].alignment = Alignment(wrap_text=True, vertical='top')
+    ws_config.merge_cells(f'A{row}:E{row}')
+    ws_config.row_dimensions[row].height = 32
+    row += 1
     row += 1
 
     ws_config[f'A{row}'] = "ALTERNATIVES DEFINITIONS (Fill in the yellow cells)"
@@ -356,6 +411,8 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
                  "Consequence-range coverage: to what extent does the assessment scale of criterion i span the full range of consequences that can realistically occur across alternatives? (0 to 10)")
     ws1.merge_cells('A3:L3')
     ws1['A3'].alignment = Alignment(wrap_text=True, vertical='top')
+    who_line(ws1, "Who enters: each expert gives both ratings (0 to 10) for every criterion in their own two columns (Concern Ee and "
+                  "Range Ee for Expert e). The Main User collects the experts' ratings in this sheet.")
     headers = ["Criterion ID", "Criterion Name"] + [f"Concern E{e+1}" for e in range(E)] + [f"Range E{e+1}" for e in range(E)]
     headers += ["Median Concern", "Median Range", "Overall (min)", "Concern Status", "Range Status"]
     header_row(ws1, 5, headers)
@@ -396,6 +453,8 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
         thr = thresholds[thr_key]
         sheet_banner(ws, title, prop, f"Threshold: {thr_symbol} = {thr}")
         ws['A3'] = RATING_QUESTIONS[prop]
+        who_line(ws, "Who enters: each expert rates every criterion (0 to 10) in their own column (Expert 1, Expert 2, ...). "
+                     "The Main User collects the experts' ratings in this sheet.", last_col='J')
         ws.merge_cells('A3:J3')
         ws['A3'].alignment = Alignment(wrap_text=True, vertical='top')
         extra = ["Designated Objective (optional)"] if prop == 3 else []
@@ -431,6 +490,8 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws4['A3'] = "For each criterion i and each finalized objective o, indicate whether criterion i meaningfully represents objective o (1 = yes, 0 = no). Do not leave cells blank. A criterion may represent several objectives."
     ws4.merge_cells('A3:J3')
     ws4['A3'].alignment = Alignment(wrap_text=True, vertical='top')
+    who_line(ws4, "Who enters: each expert completes their own block (Expert e Assignments) with 0 or 1 in every cell. "
+                  "The Main User collects the blocks; the consolidation below is automatic.", last_col='J')
     rep_expert_rows = []
     row = 5
     for e in range(E):
@@ -479,6 +540,8 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws6['A3'] = "Is criterion i assessed primarily using measured or calculated quantitative values (1), or primarily through qualitative or ordinal judgment (0)? Strict majority is required; an even-panel tie must be re-elicited."
     ws6.merge_cells('A3:J3')
     ws6['A3'].alignment = Alignment(wrap_text=True, vertical='top')
+    who_line(ws6, "Who enters: each expert enters 1 or 0 for every criterion in their own column. The Main User collects the votes.",
+             last_col='J')
     header_row(ws6, 5, ["Criterion ID", "Criterion Name"] + [f"Expert {e+1}" for e in range(E)] + ["Votes (quantitative)", "Tag o_i"])
     for i in range(num_criteria):
         r = DATA_START + i
@@ -502,13 +565,22 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws10 = wb.create_sheet("X_Unambiguity")
     sheet_banner(ws10, "Property X: Unambiguity (cross-expert ratings of mapping explanations)", 10,
                  f"Threshold: mu = {thresholds['mu']}. Self-ratings are excluded; the median is taken over all cross-expert ratings.")
-    ws10['A3'] = ("Each expert authored an explanation of how consequences are mapped onto the assessment levels of criterion i. Every other expert rates that explanation: "
-                  "to what extent does it specify a precise and assessor-independent mapping from consequences to levels? (0 to 10). Column E_r to E_a = rating by expert r of the explanation authored by expert a.")
+    ws10['A3'] = ("Each expert writes an explanation of how the consequences of an option translate into the assessment levels of criterion i. "
+                  "Every other expert then rates that explanation: how well does it describe a precise link between consequences and levels "
+                  "that does not depend on who is doing the assessment? The rating is from 0 to 10. Column E_r to E_a represents the rating "
+                  "by expert r of the explanation authored by expert a (for example, column \"E1 to E2\" holds Expert 1's rating of the "
+                  "explanation written by Expert 2). Experts never rate their own explanation, so there is no \"E_a to E_a\" column.")
+    who_line(ws10, "Who enters: (1) each expert a writes one explanation per criterion; the explanations are shared anonymously outside this "
+                   "workbook. (2) Each expert r rates every other expert's explanation and fills only the columns that start with their own "
+                   "number (\"E_r to ...\"). (3) The Main User collects all ratings in this sheet.", height=46)
     ws10.merge_cells('A3:L3')
     ws10['A3'].alignment = Alignment(wrap_text=True, vertical='top')
     cross_headers = [f"E{r+1} to E{a+1}" for r in range(E) for a in range(E) if r != a]
     n_cross = len(cross_headers)
     header_row(ws10, 5, ["Criterion ID", "Criterion Name"] + cross_headers + ["Median", "Status"])
+    for j, (r_e, a_e) in enumerate([(r, a) for r in range(E) for a in range(E) if r != a]):
+        ws10.cell(row=5, column=3 + j).comment = Comment(
+            f"Rating by Expert {r_e+1} of the explanation written by Expert {a_e+1} (0 to 10). Filled by Expert {r_e+1}.", "CREST")
     for i in range(num_criteria):
         r = DATA_START + i
         ws10.cell(row=r, column=1, value=f"C{i+1}")
@@ -534,6 +606,8 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     ws11['A3'] = "Holding all other criteria fixed, does movement in the stated preferred direction on criterion i (an increase for a benefit criterion, a decrease for a cost criterion) never make an alternative less preferred? (1 = yes, 0 = no)"
     ws11.merge_cells('A3:J3')
     ws11['A3'].alignment = Alignment(wrap_text=True, vertical='top')
+    who_line(ws11, "Who enters: each expert enters 1 or 0 for every criterion in their own column. The Main User collects the responses.",
+             last_col='J')
     header_row(ws11, 5, ["Criterion ID", "Criterion Name", "Type", "Preferred direction"] + [f"Expert {e+1}" for e in range(E)] + ["q_i", "Status"])
     for i in range(num_criteria):
         r = DATA_START + i
@@ -557,12 +631,26 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
     # ------------------------------------------------------------
     # SHEETS XII and XIII: DECISION MATRICES
     # ------------------------------------------------------------
-    def matrix_sheet(sheet_name, title, prop_num, line2, line3):
+    objective_fill = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid")
+
+    def basis_formula(k):
+        ref = f"Configuration!$E${CRITERIA_START_ROW + k}"
+        return f'=IF({ref}="","(not set)",{ref})'
+
+    def matrix_sheet(sheet_name, title, prop_num, line2, line3, who, with_basis=False, legend=None):
         ws = wb.create_sheet(sheet_name)
         sheet_banner(ws, title, prop_num, line2)
+        wide = get_column_letter(max(10, 1 + num_criteria))   # text rows span the whole matrix width
         ws['A3'] = line3
-        ws.merge_cells('A3:J3')
+        ws.merge_cells(f'A3:{wide}3')
         ws['A3'].alignment = Alignment(wrap_text=True, vertical='top')
+        who_line(ws, who, last_col=wide, height=52 if with_basis else 22)
+        if legend:
+            ws['A5'] = legend
+            ws['A5'].font = Font(italic=True, color="1F4E79")
+            ws['A5'].alignment = Alignment(wrap_text=True, vertical='top')
+            ws.merge_cells(f'A5:{wide}5')
+            ws.row_dimensions[5].height = 34
         row = 6
         block_rows = []
         for e in range(E):
@@ -570,25 +658,76 @@ def generate_excel_template(num_criteria, num_alternatives, num_experts, num_obj
             row += 1
             header_row(ws, row, ["Alternative"] + [f"C{c+1}" for c in range(num_criteria)])
             row += 1
+            if with_basis:
+                c = ws.cell(row=row, column=1, value="Performance basis"); c.font = Font(italic=True); c.border = thin_border
+                for k in range(num_criteria):
+                    c = ws.cell(row=row, column=2 + k, value=basis_formula(k))
+                    c.font = Font(italic=True, color="1F4E79"); c.border = thin_border
+                    c.alignment = Alignment(horizontal='center', shrink_to_fit=True)
+                basis_row = row
+                row += 1
             block_rows.append(row)
             for a in range(num_alternatives):
                 c = ws.cell(row=row, column=1, value=alt_ref(a)); c.border = thin_border
                 for k in range(num_criteria):
                     input_cell(ws, row, 2 + k, active[prop_num])
                 row += 1
+            if with_basis and active[prop_num] and num_criteria > 0:
+                last_col = get_column_letter(1 + num_criteria)
+                ws.conditional_formatting.add(
+                    f"B{block_rows[-1]}:{last_col}{row - 1}",
+                    FormulaRule(formula=[f'B${basis_row}="Objective"'], fill=objective_fill))
             row += 2
+        if with_basis and num_criteria > 0:
+            ws.cell(row=row, column=1, value="MAIN USER CHECK: objective criteria must have identical values in every expert matrix").font = Font(bold=True)
+            row += 1
+            header_row(ws, row, ["Criterion"] + [f"C{c+1}" for c in range(num_criteria)])
+            row += 1
+            check_basis_row = row
+            c = ws.cell(row=row, column=1, value="Performance basis"); c.font = Font(italic=True); c.border = thin_border
+            for k in range(num_criteria):
+                c = ws.cell(row=row, column=2 + k, value=basis_formula(k)); c.font = Font(italic=True, color="1F4E79")
+                c.border = thin_border; c.alignment = Alignment(horizontal='center', shrink_to_fit=True)
+            row += 1
+            c = ws.cell(row=row, column=1, value="Objective values identical across experts?"); c.border = thin_border
+            for k in range(num_criteria):
+                col = get_column_letter(2 + k)
+                b1 = block_rows[0]
+                diffs = [f"SUMPRODUCT(--({col}{b1}:{col}{b1 + num_alternatives - 1}<>{col}{be}:{col}{be + num_alternatives - 1}))"
+                         for be in block_rows[1:]]
+                same = f"{'+'.join(diffs)}=0" if diffs else "TRUE"
+                output_cell(ws, row, 2 + k,
+                            f'=IF({col}{check_basis_row}<>"Objective","n/a",IF({same},"Consistent","Values differ"))')
+                ws.cell(row=row, column=2 + k).alignment = Alignment(horizontal='center', shrink_to_fit=True)
+            check_range = f"B{row}:{get_column_letter(1 + num_criteria)}{row}"
+            ws.conditional_formatting.add(check_range, FormulaRule(formula=['B{0}="Values differ"'.format(row)],
+                                                                   font=Font(bold=True, color="C00000")))
+            row += 1
         ws.column_dimensions['A'].width = 35
         for k in range(num_criteria):
             ws.column_dimensions[get_column_letter(2 + k)].width = 10
-        ws.row_dimensions[3].height = 60
+        ws.row_dimensions[3].height = 52 if num_criteria >= 12 else 64
         return block_rows
 
     rows12 = matrix_sheet("XII_Distinctiveness", "Property XII: Distinctiveness - Decision Matrices", 12,
                           f"Correlation threshold: delta = {thresholds['delta']}",
-                          "Each expert provides an alternative-by-criterion performance matrix (raw performances). The app computes the absolute Pearson correlation of every criterion pair within each expert matrix and pools them by the median.")
+                          "Each expert provides an alternative-by-criterion performance matrix (raw performances). The app computes the absolute Pearson correlation of every criterion pair within each expert matrix and pools them by the median.",
+                          "Who enters: one matrix per expert (Expert e fills the block \"Expert e Decision Matrix\"). The Main User collects the matrices in this sheet.")
     rows13 = matrix_sheet("XIII_Sensitivity", "Property XIII: Sensitivity - Decision Matrices", 13,
                           f"Sensitivity threshold: theta = {thresholds['theta']}; N_MC = {n_mc}; seed = {seed}",
-                          "Each expert provides an alternative-by-criterion performance matrix. The app applies direction-aware normalization, draws N_MC Dirichlet weight vectors, and computes the average relative influence of each criterion.")
+                          "The input for this property is an alternative-by-criterion performance matrix completed separately by each expert for the "
+                          "subjective criteria. In the full matrix, the values for objective criteria are repeated across all experts, while the "
+                          "experts' evaluations of the alternatives may differ for the subjective criteria. Enter raw performance values; the app "
+                          "normalizes them using each criterion's Cost/Benefit type, draws N_MC Dirichlet weight vectors, and computes the average "
+                          "relative influence of each criterion.",
+                          "Who enters: the Main User enters the values of the objective criteria (blue-shaded columns) once and repeats the same "
+                          "values in every expert matrix; experts do not reassess them. Each expert enters their own values for the subjective "
+                          "criteria in their own matrix (\"Expert e Decision Matrix\"). Differences between the matrices should therefore come "
+                          "only from the subjective criteria; the Main User check at the bottom flags objective columns that differ.",
+                          with_basis=True,
+                          legend="Performance basis (row under each header, taken from Configuration column E): Objective = measured or calculated "
+                                 "value, identical for all experts, entered by the Main User. Subjective = value based on expert judgment, may "
+                                 "differ between experts.")
     meta['matrix_rows_12'] = ",".join(str(r) for r in rows12)
     meta['matrix_rows_13'] = ",".join(str(r) for r in rows13)
 
