@@ -75,7 +75,7 @@ PROPERTY_EFFECTS = {
     3: "Score gate and normalized reward",
     4: "Objective coverage and under/over-representation penalties",
     5: "Under/over-complexity penalties",
-    6: "Quantitative-composition interval; rho is always reported",
+    6: "Linear composition bounds on the quantitative count; rho is reported after solving only",
     7: "Score gate and normalized reward",
     8: "Score gate and normalized reward",
     9: "Score gate and normalized reward",
@@ -1200,7 +1200,8 @@ def build_mcdm_model(d, w, reward_coeff):
         setattr(m, nm, pyo.Var(m.I, domain=pyo.Binary))
     m.h = pyo.Var(m.P, domain=pyo.Binary)
     m.t = pyo.Var(m.P, domain=pyo.Binary)
-    # A nonempty portfolio is required to define rho = sum(o_i x_i) / N.
+    # Retain the existing nonempty-portfolio domain. Rho is not a model variable or
+    # constraint; Assessment Mode uses only N and the two linear composition bounds.
     m.N = pyo.Var(domain=pyo.NonNegativeIntegers, bounds=(1, len(I)))
     m.n = pyo.Var(m.O, domain=pyo.NonNegativeIntegers)
     m.d1_minus = pyo.Var(domain=pyo.NonNegativeIntegers)
@@ -1504,7 +1505,7 @@ def build_result_frames(d, w, solution, gates, reward_coeff, denominators, metho
         ["Parsimony deviations", f"d1-={solution['d1_minus']}; d1+={solution['d1_plus']}; d2-={solution['d2_minus']}; d2+={solution['d2_plus']}", "Penalized only when Property V is active"],
         ["Threshold convention", "Equality permitted", "Minimum gates use score >= threshold; joint selection requires correlation <= delta. No epsilon shift."],
         ["Boundary indicators", "May be 0 or 1", "Gate_Review and Pairwise_Review report the returned auxiliary values. Eligibility at equality is independent of an unselected criterion's indicator."],
-        ["Nonempty portfolio", "N >= 1", "Required for the reported proportion rho."],
+        ["Nonempty portfolio", "N >= 1", "Existing nonempty-portfolio domain; rho is computed only after optimization."],
         ["Weighting", "SWING (app Step 3)", "Weights of inactive properties are locked to 0; active weights sum to 1"],
     ], columns=["Metric", "Value", "Interpretation"])
 
