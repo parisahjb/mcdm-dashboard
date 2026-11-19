@@ -1871,6 +1871,11 @@ def get_property_ranges(data):
     return ranges
 
 
+# Case-study SWING scores (reference Parsimony over-complexity w5^+ = 100).
+# Terms not listed default to 25.
+CASE_STUDY_SWING = {'w4_minus': 100.0, 'w5_minus': 50.0}
+
+
 def show_step3_set_weights():
     st.header("⚖️ Step 3: SWING Weighting")
     data = st.session_state.data
@@ -1935,10 +1940,12 @@ def show_step3_set_weights():
                 continue
             p, name, kind, desc = WEIGHT_COMPONENTS[key]
             sk, ik = f"slider_{key}", f"input_{key}"
+            # Default SWING scores of the case study (Table S14); reference w5^+ = 100
+            default_score = CASE_STUDY_SWING.get(key, 25.0)
             if sk not in st.session_state:
-                st.session_state[sk] = 50.0
+                st.session_state[sk] = default_score
             if ik not in st.session_state:
-                st.session_state[ik] = 50.0
+                st.session_state[ik] = default_score
             pr = ranges[key]
             col_range, col_slider, col_input = st.columns([1, 3, 1])
             with col_range:
